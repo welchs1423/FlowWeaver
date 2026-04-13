@@ -37,6 +37,9 @@ describe('WorkflowService', () => {
     expect(result.executedNodes).toEqual(['t1', 'a1']);
     expect(result.log.some((l) => l.includes('[TRIGGER]'))).toBe(true);
     expect(result.log.some((l) => l.includes('[ACTION]'))).toBe(true);
+    expect(result.steps).toHaveLength(2);
+    expect(result.steps.every((s) => s.status === 'success')).toBe(true);
+    expect(result.failedAt).toBeUndefined();
   });
 
   it('passes context from trigger output into the action input', async () => {
@@ -75,5 +78,52 @@ describe('WorkflowService', () => {
     const result = await service.execute(dto);
     expect(result.executedNodes).toHaveLength(0);
     expect(result.contextMap).toEqual({});
+    expect(result.steps).toHaveLength(0);
+  });
+
+  it('stops execution and records failedAt when a node throws', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error('network error')) as jest.Mock;
+
+    const dto = buildDto(
+      [
+        { id: 't1', type: NodeType.TRIGGER, label: 'Start', data: { kind: NodeKind.WEBHOOK } },
+        {
+          id: 'a1',
+          type: NodeType.ACTION,
+          label: 'HTTP',
+          data: { kind: NodeKind.HTTP_REQUEST, url: 'https://example.com' },
+        },
+        { id: 'a2', type: NodeType.ACTION, label: 'Never', data: { kind: NodeKind.DATA_TRANSFORM } },
+      ],
+      [
+        { id: 'e1', source: 't1', target: 'a1' },
+        { id: 'e2', source: 'a1', target: 'a2' },
+      ],
+    );
+
+    const result = await service.execute(dto);
+
+    expect(result.failedAt).toBe('a1');
+    expect(result.executedNodes).toEqual(['t1']); // a1 failed, a2 never ran
+    expect(result.steps).toHaveLength(2);
+    expect(result.steps[1].status).toBe('failed');
+    expect(result.steps[1].error).toContain('network error');
+    expect(result.log.some((l) => l.includes('[ERROR]'))).toBe(true);
+
+    jest.restoreAllMocks();
+  });
+
+  it('each step includes startedAt and finishedAt timestamps', async () => {
+    const dto = buildDto(
+      [{ id: 't1', type: NodeType.TRIGGER, label: 'Start', data: { kind: NodeKind.WEBHOOK } }],
+      [],
+    );
+    const result = await service.execute(dto);
+    const step = result.steps[0];
+    expect(step.startedAt).toBeTruthy();
+    expect(step.finishedAt).toBeTruthy();
+    expect(new Date(step.startedAt).getTime()).toBeLessThanOrEqual(
+      new Date(step.finishedAt).getTime(),
+    );
   });
 });

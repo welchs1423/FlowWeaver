@@ -64,21 +64,28 @@ export class FlowsService {
       edges: SaveFlowDto['edges'];
     };
 
+    const startedAt = new Date();
     let result: ExecutionResult;
     let status: string;
+
     try {
       result = await this.workflowService.execute({ nodes: dag.nodes, edges: dag.edges });
-      status = 'success';
+      // failedAt being set means a node-level error stopped the run
+      status = result.failedAt ? 'failed' : 'success';
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      result = { executedNodes: [], log: [message], contextMap: {} };
+      result = { executedNodes: [], log: [message], contextMap: {}, steps: [] };
       status = 'failed';
     }
+
+    const finishedAt = new Date();
 
     const execution = await this.prisma.execution.create({
       data: {
         flowId: id,
         status,
+        startedAt,
+        finishedAt,
         result: JSON.stringify(result),
       },
     });

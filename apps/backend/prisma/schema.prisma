@@ -17,10 +17,12 @@ model Flow {
 }
 
 model Execution {
-  id        String   @id @default(cuid())
-  flowId    String
-  flow      Flow     @relation(fields: [flowId], references: [id], onDelete: Cascade)
-  status    String   // "success" | "failed"
-  result    String?  // JSON-serialized ExecutionResult
-  createdAt DateTime @default(now())
+  id         String    @id @default(cuid())
+  flowId     String
+  flow       Flow      @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  status     String    // "success" | "failed"
+  startedAt  DateTime
+  finishedAt DateTime?
+  result     String?   // JSON-serialized ExecutionResult
+  createdAt  DateTime  @default(now())
 }
