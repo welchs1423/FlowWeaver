@@ -60,6 +60,16 @@ pnpm backend dev
 - **FlowsService 업데이트**: 실행 전후 타임스탬프를 측정하고, `result.failedAt` 여부에 따라 `status`를 `'failed'`로 자동 판단하도록 수정
 - **테스트 추가**: 노드 레벨 에러 발생 시 실행 중단 및 `failedAt` 설정 검증, 각 스텝의 타임스탬프 포함 여부 검증 등 2개 테스트 추가 (총 22개 테스트 통과)
 
+### 2026-04-14 (모니터링 대시보드)
+
+- **ExecutionsModule 추가**: 백엔드에 `GET /executions`, `GET /executions/:id` 엔드포인트 추가. 모든 실행 이력을 플로우 이름과 함께 최신순으로 조회 가능
+- **대시보드 메인 페이지 (`/dashboard`)**: 전체 실행 이력을 테이블로 표시. 5초 주기 자동 폴링으로 실시간 상태 반영. 전체/성공/실패/실행 중 건수를 통계 카드로 요약
+- **상태 배지**: `Success`(초록), `Failed`(빨강), `Running`(파랑 점멸) 배지로 실행 상태를 시각적으로 구분
+- **실행 상세 페이지 (`/dashboard/[id]`)**: 특정 실행 클릭 시 노드별 실행 단계(라벨, 상태, 소요 시간, 출력값, 에러 메시지) 및 전체 실행 로그 확인 가능
+- **홈 페이지 업데이트**: 홈(`/`)에 "Monitoring Dashboard" 버튼 추가
+- **api.ts 타입 확장**: `StepResult`, `ExecutionWithFlow` 인터페이스 추가, `ExecutionRecord`에 `startedAt`/`finishedAt` 필드 추가
+- `pnpm build` 성공, 백엔드 단위 테스트 22개 전체 통과
+
 ### 2026-04-13
 
 #### 초기 설정

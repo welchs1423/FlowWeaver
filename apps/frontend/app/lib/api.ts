@@ -14,14 +14,32 @@ export interface ExecutionRecord {
   id: string;
   flowId: string;
   status: string;
+  startedAt: string;
+  finishedAt: string | null;
   result: string | null;
   createdAt: string;
+}
+
+export interface StepResult {
+  nodeId: string;
+  label: string;
+  status: 'success' | 'failed';
+  output?: Record<string, unknown>;
+  error?: string;
+  startedAt: string;
+  finishedAt: string;
 }
 
 export interface ExecutionResult {
   executedNodes: string[];
   log: string[];
   contextMap: Record<string, Record<string, unknown>>;
+  steps: StepResult[];
+  failedAt?: string;
+}
+
+export interface ExecutionWithFlow extends ExecutionRecord {
+  flow: { id: string; name: string };
 }
 
 export interface ExecuteResponse {
@@ -96,4 +114,16 @@ export async function executeFlow(id: string): Promise<ExecuteResponse> {
     throw new Error(`Execute failed (${res.status}): ${text}`);
   }
   return res.json() as Promise<ExecuteResponse>;
+}
+
+export async function fetchExecutions(): Promise<ExecutionWithFlow[]> {
+  const res = await fetch(`${BASE_URL}/executions`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`Failed to fetch executions (${res.status})`);
+  return res.json() as Promise<ExecutionWithFlow[]>;
+}
+
+export async function fetchExecution(id: string): Promise<ExecutionWithFlow> {
+  const res = await fetch(`${BASE_URL}/executions/${id}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`Failed to fetch execution ${id} (${res.status})`);
+  return res.json() as Promise<ExecutionWithFlow>;
 }
