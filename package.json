@@ -1,0 +1,17 @@
+{
+  "name": "flowweaver",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel --filter=./apps/* dev",
+    "build": "pnpm --filter=./apps/* build",
+    "lint": "pnpm --filter=./apps/* lint",
+    "test": "pnpm --filter=./apps/* test",
+    "frontend": "pnpm --filter=@flowweaver/frontend",
+    "backend": "pnpm --filter=@flowweaver/backend"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}
