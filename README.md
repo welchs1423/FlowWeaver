@@ -60,7 +60,27 @@ pnpm backend dev
 - **FlowsService 업데이트**: 실행 전후 타임스탬프를 측정하고, `result.failedAt` 여부에 따라 `status`를 `'failed'`로 자동 판단하도록 수정
 - **테스트 추가**: 노드 레벨 에러 발생 시 실행 중단 및 `failedAt` 설정 검증, 각 스텝의 타임스탬프 포함 여부 검증 등 2개 테스트 추가 (총 22개 테스트 통과)
 
-### 2026-04-13 (DB & API Integration)
+### 2026-04-13
+
+#### 초기 설정
+
+- pnpm workspaces 기반 모노레포 초기 구성
+- `apps/frontend`: Next.js 16 + Tailwind CSS 4 (App Router)
+- `apps/backend`: NestJS 11 (포트 3001)
+- 워크스페이스 패키지명: `@flowweaver/frontend`, `@flowweaver/backend`
+
+#### 캔버스 에디터
+
+- `apps/frontend`에 `/canvas` 경로로 시각적 캔버스 에디터 추가
+- 사이드바(`Sidebar.tsx`)에서 트리거/액션 노드 템플릿을 드래그 가능하도록 목록 표시
+- React Flow 캔버스(`FlowCanvas.tsx`)에 노드 드래그앤드롭 지원
+- 커스텀 노드 컴포넌트(`CustomNode.tsx`): 인라인 설정 입력 및 연결 핸들 포함
+- Zustand 스토어(`store/flowStore.ts`)로 노드/엣지 전역 상태 관리
+- DAG 유틸리티(`lib/dagUtils.ts`): 캔버스 상태를 백엔드용 JSON 그래프로 실시간 변환
+- 홈 페이지에 캔버스 에디터 링크 추가
+- 의존성 추가: `reactflow@11`, `zustand@5`
+
+#### DB & API Integration
 
 - Added Prisma ORM (v7) to `apps/backend` with SQLite database (`prisma/dev.db`)
 - Defined `Flow` and `Execution` models in `prisma/schema.prisma`
@@ -79,21 +99,3 @@ pnpm backend dev
   - Save auto-creates or updates the flow in the DB
   - Run auto-saves if not yet saved, then executes via the backend and displays the execution log
 - All 20 backend unit tests pass; both apps build cleanly
-
-### 2026-04-13 (캔버스 에디터)
-
-- `apps/frontend`에 `/canvas` 경로로 시각적 캔버스 에디터 추가
-- 사이드바(`Sidebar.tsx`)에서 트리거/액션 노드 템플릿을 드래그 가능하도록 목록 표시
-- React Flow 캔버스(`FlowCanvas.tsx`)에 노드 드래그앤드롭 지원
-- 커스텀 노드 컴포넌트(`CustomNode.tsx`): 인라인 설정 입력 및 연결 핸들 포함
-- Zustand 스토어(`store/flowStore.ts`)로 노드/엣지 전역 상태 관리
-- DAG 유틸리티(`lib/dagUtils.ts`): 캔버스 상태를 백엔드용 JSON 그래프로 실시간 변환
-- 홈 페이지에 캔버스 에디터 링크 추가
-- 의존성 추가: `reactflow@11`, `zustand@5`
-
-### 2026-04-13 (초기 설정)
-
-- pnpm workspaces 기반 모노레포 초기 구성
-- `apps/frontend`: Next.js 16 + Tailwind CSS 4 (App Router)
-- `apps/backend`: NestJS 11 (포트 3001)
-- 워크스페이스 패키지명: `@flowweaver/frontend`, `@flowweaver/backend`
