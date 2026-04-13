@@ -9,7 +9,7 @@ export class WorkflowController {
 
   @Post('execute')
   @HttpCode(HttpStatus.OK)
-  execute(@Body() dto: WorkflowDto): ExecutionResult {
+  execute(@Body() dto: WorkflowDto): Promise<ExecutionResult> {
     return this.workflowService.execute(dto);
   }
 }

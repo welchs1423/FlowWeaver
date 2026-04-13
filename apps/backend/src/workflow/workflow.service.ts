@@ -2,10 +2,17 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { WorkflowDto } from './dto/workflow.dto';
 import { parseDag } from './dag/dag-parser';
 import { executeWorkflow, ExecutionResult } from './dag/execution-engine';
+import { TriggerService } from './trigger/trigger.service';
+import { ActionService } from './action/action.service';
 
 @Injectable()
 export class WorkflowService {
-  execute(dto: WorkflowDto): ExecutionResult {
+  constructor(
+    private readonly triggerService: TriggerService,
+    private readonly actionService: ActionService,
+  ) {}
+
+  async execute(dto: WorkflowDto): Promise<ExecutionResult> {
     let parseResult;
     try {
       parseResult = parseDag(dto.nodes, dto.edges);
@@ -13,6 +20,6 @@ export class WorkflowService {
       const message = err instanceof Error ? err.message : String(err);
       throw new BadRequestException(message);
     }
-    return executeWorkflow(parseResult);
+    return executeWorkflow(parseResult, this.triggerService, this.actionService);
   }
 }

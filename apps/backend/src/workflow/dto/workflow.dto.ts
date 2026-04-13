@@ -13,6 +13,14 @@ export enum NodeType {
   ACTION = 'action',
 }
 
+// Sub-type discriminator stored in node.data.kind
+export enum NodeKind {
+  WEBHOOK = 'webhook',
+  SCHEDULE = 'schedule',
+  HTTP_REQUEST = 'http-request',
+  DATA_TRANSFORM = 'data-transform',
+}
+
 export class NodeDto {
   @IsString()
   id: string;
