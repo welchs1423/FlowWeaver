@@ -52,8 +52,8 @@ describe('ActionService', () => {
     beforeEach(() => {
       global.fetch = jest.fn().mockResolvedValue({
         status: 200,
-        json: async () => mockResponseBody,
-      }) as jest.Mock;
+        json: () => Promise.resolve(mockResponseBody),
+      });
     });
 
     afterEach(() => {

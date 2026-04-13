@@ -5,10 +5,10 @@ import { NodeDto, NodeKind } from '../dto/workflow.dto';
 export class TriggerService {
   private readonly logger = new Logger(TriggerService.name);
 
-  async fire(
+  fire(
     node: NodeDto,
     inputContext: Record<string, unknown>,
-  ): Promise<Record<string, unknown>> {
+  ): Record<string, unknown> {
     const kind = node.data?.kind as NodeKind | undefined;
 
     switch (kind) {

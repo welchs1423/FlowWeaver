@@ -55,7 +55,7 @@ export async function executeWorkflow(
     try {
       if (node.type === NodeType.TRIGGER) {
         record(`[TRIGGER] id=${node.id} label="${node.label}" — fired`);
-        output = await triggerService.fire(node, inputContext);
+        output = triggerService.fire(node, inputContext);
       } else {
         record(`[ACTION]  id=${node.id} label="${node.label}" — executed`);
         output = await actionService.execute(node, inputContext);

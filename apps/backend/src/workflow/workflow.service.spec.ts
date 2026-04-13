@@ -1,17 +1,28 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { WorkflowService } from './workflow.service';
-import { WorkflowDto, NodeType, NodeKind } from './dto/workflow.dto';
+import {
+  WorkflowDto,
+  NodeDto,
+  EdgeDto,
+  NodeType,
+  NodeKind,
+} from './dto/workflow.dto';
 import { TriggerService } from './trigger/trigger.service';
 import { ActionService } from './action/action.service';
 
 function buildDto(
-  nodes: { id: string; type: NodeType; label: string; data?: Record<string, unknown> }[],
+  nodes: {
+    id: string;
+    type: NodeType;
+    label: string;
+    data?: Record<string, unknown>;
+  }[],
   edges: { id: string; source: string; target: string }[],
 ): WorkflowDto {
   const dto = new WorkflowDto();
-  dto.nodes = nodes.map((n) => Object.assign(Object.create(null), n));
-  dto.edges = edges.map((e) => Object.assign(Object.create(null), e));
+  dto.nodes = nodes.map((n) => Object.assign(new NodeDto(), n));
+  dto.edges = edges.map((e) => Object.assign(new EdgeDto(), e));
   return dto;
 }
 
@@ -28,8 +39,18 @@ describe('WorkflowService', () => {
   it('executes a simple trigger -> action workflow', async () => {
     const dto = buildDto(
       [
-        { id: 't1', type: NodeType.TRIGGER, label: 'Start', data: { kind: NodeKind.WEBHOOK } },
-        { id: 'a1', type: NodeType.ACTION, label: 'Transform', data: { kind: NodeKind.DATA_TRANSFORM } },
+        {
+          id: 't1',
+          type: NodeType.TRIGGER,
+          label: 'Start',
+          data: { kind: NodeKind.WEBHOOK },
+        },
+        {
+          id: 'a1',
+          type: NodeType.ACTION,
+          label: 'Transform',
+          data: { kind: NodeKind.DATA_TRANSFORM },
+        },
       ],
       [{ id: 'e1', source: 't1', target: 'a1' }],
     );
@@ -45,12 +66,20 @@ describe('WorkflowService', () => {
   it('passes context from trigger output into the action input', async () => {
     const dto = buildDto(
       [
-        { id: 't1', type: NodeType.TRIGGER, label: 'Webhook', data: { kind: NodeKind.WEBHOOK } },
+        {
+          id: 't1',
+          type: NodeType.TRIGGER,
+          label: 'Webhook',
+          data: { kind: NodeKind.WEBHOOK },
+        },
         {
           id: 'a1',
           type: NodeType.ACTION,
           label: 'Rename',
-          data: { kind: NodeKind.DATA_TRANSFORM, mapping: { by: 'triggeredBy' } },
+          data: {
+            kind: NodeKind.DATA_TRANSFORM,
+            mapping: { by: 'triggeredBy' },
+          },
         },
       ],
       [{ id: 'e1', source: 't1', target: 'a1' }],
@@ -82,18 +111,28 @@ describe('WorkflowService', () => {
   });
 
   it('stops execution and records failedAt when a node throws', async () => {
-    global.fetch = jest.fn().mockRejectedValue(new Error('network error')) as jest.Mock;
+    global.fetch = jest.fn().mockRejectedValue(new Error('network error'));
 
     const dto = buildDto(
       [
-        { id: 't1', type: NodeType.TRIGGER, label: 'Start', data: { kind: NodeKind.WEBHOOK } },
+        {
+          id: 't1',
+          type: NodeType.TRIGGER,
+          label: 'Start',
+          data: { kind: NodeKind.WEBHOOK },
+        },
         {
           id: 'a1',
           type: NodeType.ACTION,
           label: 'HTTP',
           data: { kind: NodeKind.HTTP_REQUEST, url: 'https://example.com' },
         },
-        { id: 'a2', type: NodeType.ACTION, label: 'Never', data: { kind: NodeKind.DATA_TRANSFORM } },
+        {
+          id: 'a2',
+          type: NodeType.ACTION,
+          label: 'Never',
+          data: { kind: NodeKind.DATA_TRANSFORM },
+        },
       ],
       [
         { id: 'e1', source: 't1', target: 'a1' },
@@ -115,7 +154,14 @@ describe('WorkflowService', () => {
 
   it('each step includes startedAt and finishedAt timestamps', async () => {
     const dto = buildDto(
-      [{ id: 't1', type: NodeType.TRIGGER, label: 'Start', data: { kind: NodeKind.WEBHOOK } }],
+      [
+        {
+          id: 't1',
+          type: NodeType.TRIGGER,
+          label: 'Start',
+          data: { kind: NodeKind.WEBHOOK },
+        },
+      ],
       [],
     );
     const result = await service.execute(dto);
