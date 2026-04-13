@@ -52,7 +52,17 @@ pnpm backend dev
 
 ## Changelog
 
-### 2026-04-13
+### 2026-04-13 (canvas editor)
+- Added visual canvas editor at `/canvas` route in `apps/frontend`
+- Sidebar (`Sidebar.tsx`) lists draggable Trigger and Action node templates
+- Drag-and-drop nodes onto a React Flow canvas (`FlowCanvas.tsx`)
+- Custom node component (`CustomNode.tsx`) with inline config input and connection handles
+- Zustand store (`store/flowStore.ts`) manages global nodes/edges state
+- DAG utility (`lib/dagUtils.ts`) converts the canvas state to a backend-ready JSON graph in real time
+- Home page updated with link to the canvas editor
+- Dependencies added: `reactflow@11`, `zustand@5`
+
+### 2026-04-13 (initial)
 - Initial monorepo setup with pnpm workspaces
 - `apps/frontend`: Next.js 16 + Tailwind CSS 4 (App Router)
 - `apps/backend`: NestJS 11 (port 3001)

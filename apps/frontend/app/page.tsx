@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function Home() {
   return (
     <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 dark:bg-zinc-950">
@@ -9,9 +11,12 @@ export default function Home() {
           Node-based workflow automation tool. Build, connect, and automate your
           processes visually.
         </p>
-        <span className="inline-block rounded-full bg-zinc-200 dark:bg-zinc-800 px-4 py-1 text-sm text-zinc-600 dark:text-zinc-300">
-          Under construction
-        </span>
+        <Link
+          href="/canvas"
+          className="inline-block rounded-lg bg-violet-600 hover:bg-violet-500 px-6 py-2.5 text-sm font-semibold text-white transition-colors"
+        >
+          Open Canvas
+        </Link>
       </main>
     </div>
   );
