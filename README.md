@@ -80,22 +80,22 @@ pnpm backend dev
 - 홈 페이지에 캔버스 에디터 링크 추가
 - 의존성 추가: `reactflow@11`, `zustand@5`
 
-#### DB & API Integration
+#### DB & API 연동
 
-- Added Prisma ORM (v7) to `apps/backend` with SQLite database (`prisma/dev.db`)
-- Defined `Flow` and `Execution` models in `prisma/schema.prisma`
-- Created `PrismaModule` / `PrismaService` using `@prisma/adapter-better-sqlite3` (Prisma 7 driver adapter)
-- Added `FlowsModule` with full REST endpoints:
-  - `POST /flows` — save a flow (name + DAG JSON)
-  - `GET /flows` — list all flows
-  - `GET /flows/:id` — retrieve a single flow with execution history
-  - `PATCH /flows/:id` — update flow name or DAG
-  - `DELETE /flows/:id` — delete a flow
-  - `POST /flows/:id/execute` — run a saved flow and persist the result
-- Enabled CORS on the backend (`http://localhost:3000`)
-- Added `app/lib/api.ts` to `apps/frontend` for typed API calls (`saveFlow`, `updateFlow`, `executeFlow`)
-- Extended Zustand store with `savedFlowId` state to track the persisted flow
-- Added **Save** and **Run** buttons to the canvas toolbar (`FlowCanvas.tsx`):
-  - Save auto-creates or updates the flow in the DB
-  - Run auto-saves if not yet saved, then executes via the backend and displays the execution log
-- All 20 backend unit tests pass; both apps build cleanly
+- `apps/backend`에 Prisma ORM (v7) 추가, SQLite 데이터베이스 (`prisma/dev.db`) 사용
+- `prisma/schema.prisma`에 `Flow`, `Execution` 모델 정의
+- `@prisma/adapter-better-sqlite3` (Prisma 7 드라이버 어댑터)를 사용하는 `PrismaModule` / `PrismaService` 생성
+- `FlowsModule`에 REST 엔드포인트 전체 추가:
+  - `POST /flows` — 플로우 저장 (이름 + DAG JSON)
+  - `GET /flows` — 전체 플로우 목록 조회
+  - `GET /flows/:id` — 단일 플로우 및 실행 이력 조회
+  - `PATCH /flows/:id` — 플로우 이름 또는 DAG 수정
+  - `DELETE /flows/:id` — 플로우 삭제
+  - `POST /flows/:id/execute` — 저장된 플로우 실행 및 결과 DB 저장
+- 백엔드에 CORS 허용 설정 (`http://localhost:3000`)
+- `apps/frontend`에 `app/lib/api.ts` 추가: 타입 지정 API 호출 함수 (`saveFlow`, `updateFlow`, `executeFlow`)
+- Zustand 스토어에 `savedFlowId` 상태 추가하여 저장된 플로우 ID 추적
+- 캔버스 툴바(`FlowCanvas.tsx`)에 **저장** 및 **실행** 버튼 추가:
+  - 저장: DB에 플로우를 자동 생성하거나 업데이트
+  - 실행: 미저장 상태면 자동 저장 후 백엔드에서 실행하고 실행 로그 표시
+- 백엔드 유닛 테스트 20개 전체 통과, 두 앱 모두 빌드 정상
