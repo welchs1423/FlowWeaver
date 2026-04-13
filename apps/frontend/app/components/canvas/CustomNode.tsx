@@ -29,14 +29,14 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
 
   return (
     <div
-      className={`min-w-[180px] rounded-lg border-2 ${borderColor} bg-zinc-900 shadow-lg`}
+      className={`min-w-45 rounded-lg border-2 ${borderColor} bg-zinc-900 shadow-lg`}
     >
       {/* target handle — hidden for trigger nodes that have no upstream */}
       {!isTrigger && (
         <Handle
           type="target"
           position={Position.Top}
-          className="!bg-zinc-400 !border-zinc-600 !w-3 !h-3"
+          className="bg-zinc-400! border-zinc-600! w-3! h-3!"
         />
       )}
 
@@ -70,7 +70,7 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!bg-zinc-400 !border-zinc-600 !w-3 !h-3"
+        className="bg-zinc-400! border-zinc-600! w-3! h-3!"
       />
     </div>
   );
