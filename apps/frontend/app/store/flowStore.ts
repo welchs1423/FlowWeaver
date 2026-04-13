@@ -11,10 +11,12 @@ import type {
 interface FlowState {
   nodes: Node[];
   edges: Edge[];
+  savedFlowId: string | null;
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
   addNode: (node: Node) => void;
+  setSavedFlowId: (id: string | null) => void;
   reset: () => void;
 }
 
@@ -24,6 +26,7 @@ const initialEdges: Edge[] = [];
 export const useFlowStore = create<FlowState>()((set, get) => ({
   nodes: initialNodes,
   edges: initialEdges,
+  savedFlowId: null,
 
   onNodesChange: (changes) => {
     set({ nodes: applyNodeChanges(changes, get().nodes) });
@@ -41,7 +44,11 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
     set({ nodes: [...get().nodes, node] });
   },
 
+  setSavedFlowId: (id) => {
+    set({ savedFlowId: id });
+  },
+
   reset: () => {
-    set({ nodes: initialNodes, edges: initialEdges });
+    set({ nodes: initialNodes, edges: initialEdges, savedFlowId: null });
   },
 }));

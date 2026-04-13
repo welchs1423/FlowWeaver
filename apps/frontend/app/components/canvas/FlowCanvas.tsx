@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useMemo } from 'react';
+import { useCallback, useRef, useMemo, useState } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -13,9 +13,10 @@ import 'reactflow/dist/style.css';
 
 import { useFlowStore } from '../../store/flowStore';
 import { toDag } from '../../lib/dagUtils';
+import { saveFlow, updateFlow, executeFlow } from '../../lib/api';
+import type { ExecutionResult } from '../../lib/api';
 import CustomNode from './CustomNode';
 
-// registered outside render to avoid re-creating the object on each render
 const nodeTypes = { customNode: CustomNode };
 
 let nodeIdCounter = 1;
@@ -23,13 +24,19 @@ function generateId(): string {
   return `node_${nodeIdCounter++}`;
 }
 
+type ActionStatus = 'idle' | 'loading' | 'success' | 'error';
+
 export default function FlowCanvas() {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } =
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, savedFlowId, setSavedFlowId } =
     useFlowStore();
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
 
-  // dag snapshot recalculated whenever nodes or edges change
+  const [saveStatus, setSaveStatus] = useState<ActionStatus>('idle');
+  const [runStatus, setRunStatus] = useState<ActionStatus>('idle');
+  const [lastLog, setLastLog] = useState<string[]>([]);
+  const [errorMsg, setErrorMsg] = useState<string>('');
+
   const dag = useMemo(() => toDag(nodes, edges), [nodes, edges]);
 
   const onDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
@@ -70,6 +77,80 @@ export default function FlowCanvas() {
     [addNode]
   );
 
+  const handleSave = useCallback(async () => {
+    setSaveStatus('loading');
+    setErrorMsg('');
+    try {
+      if (savedFlowId) {
+        await updateFlow(savedFlowId, nodes, edges);
+      } else {
+        const flowName = `Flow ${new Date().toLocaleString()}`;
+        const record = await saveFlow(flowName, nodes, edges);
+        setSavedFlowId(record.id);
+      }
+      setSaveStatus('success');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : String(err));
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    }
+  }, [nodes, edges, savedFlowId, setSavedFlowId]);
+
+  const handleRun = useCallback(async () => {
+    setRunStatus('loading');
+    setLastLog([]);
+    setErrorMsg('');
+
+    let targetId = savedFlowId;
+
+    // auto-save before running if not yet saved
+    if (!targetId) {
+      try {
+        const flowName = `Flow ${new Date().toLocaleString()}`;
+        const record = await saveFlow(flowName, nodes, edges);
+        setSavedFlowId(record.id);
+        targetId = record.id;
+      } catch (err) {
+        setErrorMsg(err instanceof Error ? err.message : String(err));
+        setRunStatus('error');
+        setTimeout(() => setRunStatus('idle'), 3000);
+        return;
+      }
+    }
+
+    try {
+      const { result } = await executeFlow(targetId);
+      setLastLog((result as ExecutionResult).log ?? []);
+      setRunStatus('success');
+      setTimeout(() => setRunStatus('idle'), 3000);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : String(err));
+      setRunStatus('error');
+      setTimeout(() => setRunStatus('idle'), 3000);
+    }
+  }, [nodes, edges, savedFlowId, setSavedFlowId]);
+
+  const saveBtnLabel =
+    saveStatus === 'loading'
+      ? 'Saving…'
+      : saveStatus === 'success'
+        ? 'Saved'
+        : saveStatus === 'error'
+          ? 'Error'
+          : savedFlowId
+            ? 'Update'
+            : 'Save';
+
+  const runBtnLabel =
+    runStatus === 'loading'
+      ? 'Running…'
+      : runStatus === 'success'
+        ? 'Done'
+        : runStatus === 'error'
+          ? 'Error'
+          : 'Run';
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       {/* toolbar */}
@@ -77,11 +158,56 @@ export default function FlowCanvas() {
         <span>{nodes.length} node{nodes.length !== 1 ? 's' : ''}</span>
         <span className="text-zinc-700">|</span>
         <span>{edges.length} edge{edges.length !== 1 ? 's' : ''}</span>
-        <span className="ml-auto text-zinc-600 font-mono truncate max-w-sm">
-          DAG: {JSON.stringify(dag).slice(0, 120)}
-          {JSON.stringify(dag).length > 120 ? '…' : ''}
-        </span>
+        {savedFlowId && (
+          <>
+            <span className="text-zinc-700">|</span>
+            <span className="text-emerald-600 font-mono truncate max-w-[160px]">
+              id: {savedFlowId}
+            </span>
+          </>
+        )}
+
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={handleSave}
+            disabled={saveStatus === 'loading'}
+            className={`px-3 py-1 rounded text-xs font-medium transition-colors
+              ${saveStatus === 'success' ? 'bg-emerald-700 text-white' : ''}
+              ${saveStatus === 'error' ? 'bg-red-700 text-white' : ''}
+              ${saveStatus === 'idle' || saveStatus === 'loading' ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200 disabled:opacity-50' : ''}
+            `}
+          >
+            {saveBtnLabel}
+          </button>
+          <button
+            onClick={handleRun}
+            disabled={runStatus === 'loading' || nodes.length === 0}
+            className={`px-3 py-1 rounded text-xs font-medium transition-colors
+              ${runStatus === 'success' ? 'bg-emerald-700 text-white' : ''}
+              ${runStatus === 'error' ? 'bg-red-700 text-white' : ''}
+              ${runStatus === 'idle' || runStatus === 'loading' ? 'bg-sky-700 hover:bg-sky-600 text-white disabled:opacity-50' : ''}
+            `}
+          >
+            {runBtnLabel}
+          </button>
+        </div>
       </div>
+
+      {/* execution log panel */}
+      {lastLog.length > 0 && (
+        <div className="px-4 py-2 bg-zinc-900 border-b border-zinc-800 text-xs font-mono text-zinc-400 max-h-32 overflow-y-auto">
+          {lastLog.map((line, i) => (
+            <div key={i}>{line}</div>
+          ))}
+        </div>
+      )}
+
+      {/* error message */}
+      {errorMsg && (
+        <div className="px-4 py-1 bg-red-950 border-b border-red-800 text-xs text-red-400">
+          {errorMsg}
+        </div>
+      )}
 
       {/* canvas */}
       <div ref={reactFlowWrapper} className="flex-1 bg-zinc-950">

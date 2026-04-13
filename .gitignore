@@ -40,3 +40,9 @@ coverage/
 
 # Claude Code
 .claude/
+
+# SQLite database
+*.db
+*.db-journal
+*.db-wal
+*.db-shm

@@ -1,0 +1,26 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Flow {
+  id         String      @id @default(cuid())
+  name       String
+  dag        String      // JSON-serialized DagGraph
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  executions Execution[]
+}
+
+model Execution {
+  id        String   @id @default(cuid())
+  flowId    String
+  flow      Flow     @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  status    String   // "success" | "failed"
+  result    String?  // JSON-serialized ExecutionResult
+  createdAt DateTime @default(now())
+}

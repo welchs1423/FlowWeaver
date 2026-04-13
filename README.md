@@ -1,14 +1,14 @@
 # FlowWeaver
 
-노드 기반 워크플로우 자동화 도구. 프로세스를 시각적으로 구성하고 연결해 자동화할 수 있습니다.
+Next.js와 Nest.js로 구축된 강력한 시각적 워크플로우 빌더. > 직관적인 UI에서 설계한 DAG 파이프라인을 엔터프라이즈급 백엔드 엔진에서 실행합니다.
 
 ## 기술 스택
 
-| 레이어   | 기술                              |
-| -------- | --------------------------------- |
+| 레이어     | 기술                               |
+| ---------- | ---------------------------------- |
 | 프론트엔드 | Next.js (App Router), Tailwind CSS |
-| 백엔드   | NestJS                            |
-| 모노레포 | pnpm workspaces                   |
+| 백엔드     | NestJS                             |
+| 모노레포   | pnpm workspaces                    |
 
 ## 프로젝트 구조
 
@@ -43,16 +43,37 @@ pnpm backend dev
 
 ## 스크립트 (루트)
 
-| 명령어         | 설명                               |
-| -------------- | ---------------------------------- |
-| `pnpm dev`     | 프론트엔드와 백엔드를 동시에 실행  |
-| `pnpm build`   | 전체 앱 빌드                       |
-| `pnpm lint`    | 전체 앱 린트                       |
-| `pnpm test`    | 전체 앱 테스트 실행                |
+| 명령어       | 설명                              |
+| ------------ | --------------------------------- |
+| `pnpm dev`   | 프론트엔드와 백엔드를 동시에 실행 |
+| `pnpm build` | 전체 앱 빌드                      |
+| `pnpm lint`  | 전체 앱 린트                      |
+| `pnpm test`  | 전체 앱 테스트 실행               |
 
 ## 변경 이력
 
+### 2026-04-13 (DB & API Integration)
+
+- Added Prisma ORM (v7) to `apps/backend` with SQLite database (`prisma/dev.db`)
+- Defined `Flow` and `Execution` models in `prisma/schema.prisma`
+- Created `PrismaModule` / `PrismaService` using `@prisma/adapter-better-sqlite3` (Prisma 7 driver adapter)
+- Added `FlowsModule` with full REST endpoints:
+  - `POST /flows` — save a flow (name + DAG JSON)
+  - `GET /flows` — list all flows
+  - `GET /flows/:id` — retrieve a single flow with execution history
+  - `PATCH /flows/:id` — update flow name or DAG
+  - `DELETE /flows/:id` — delete a flow
+  - `POST /flows/:id/execute` — run a saved flow and persist the result
+- Enabled CORS on the backend (`http://localhost:3000`)
+- Added `app/lib/api.ts` to `apps/frontend` for typed API calls (`saveFlow`, `updateFlow`, `executeFlow`)
+- Extended Zustand store with `savedFlowId` state to track the persisted flow
+- Added **Save** and **Run** buttons to the canvas toolbar (`FlowCanvas.tsx`):
+  - Save auto-creates or updates the flow in the DB
+  - Run auto-saves if not yet saved, then executes via the backend and displays the execution log
+- All 20 backend unit tests pass; both apps build cleanly
+
 ### 2026-04-13 (캔버스 에디터)
+
 - `apps/frontend`에 `/canvas` 경로로 시각적 캔버스 에디터 추가
 - 사이드바(`Sidebar.tsx`)에서 트리거/액션 노드 템플릿을 드래그 가능하도록 목록 표시
 - React Flow 캔버스(`FlowCanvas.tsx`)에 노드 드래그앤드롭 지원
@@ -63,6 +84,7 @@ pnpm backend dev
 - 의존성 추가: `reactflow@11`, `zustand@5`
 
 ### 2026-04-13 (초기 설정)
+
 - pnpm workspaces 기반 모노레포 초기 구성
 - `apps/frontend`: Next.js 16 + Tailwind CSS 4 (App Router)
 - `apps/backend`: NestJS 11 (포트 3001)

@@ -7,5 +7,6 @@ import { ActionService } from './action/action.service';
 @Module({
   controllers: [WorkflowController],
   providers: [WorkflowService, TriggerService, ActionService],
+  exports: [WorkflowService],
 })
 export class WorkflowModule {}
