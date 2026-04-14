@@ -25,6 +25,7 @@ export interface StepResult {
   nodeId: string;
   label: string;
   status: 'success' | 'failed';
+  input?: Record<string, unknown>;
   output?: Record<string, unknown>;
   error?: string;
   startedAt: string;
@@ -160,6 +161,27 @@ export async function executeFlow(id: string): Promise<ExecuteResponse> {
     throw new Error(`Execute failed (${res.status}): ${text}`);
   }
   return res.json() as Promise<ExecuteResponse>;
+}
+
+export async function debugWorkflow(
+  nodes: Node[],
+  edges: Edge[],
+  mockInput: Record<string, unknown>,
+): Promise<ExecutionResult> {
+  const res = await fetch(`${BASE_URL}/workflow/debug`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      nodes: toApiNodes(nodes),
+      edges: toApiEdges(edges),
+      mockInput,
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Debug run failed (${res.status}): ${text}`);
+  }
+  return res.json() as Promise<ExecutionResult>;
 }
 
 export async function fetchFlows(): Promise<FlowRecord[]> {

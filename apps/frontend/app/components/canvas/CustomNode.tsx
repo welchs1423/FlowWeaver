@@ -8,6 +8,7 @@ export interface CustomNodeData {
   label: string;
   nodeType: 'trigger' | 'action';
   config: Record<string, string>;
+  _debugStatus?: 'success' | 'failed' | 'skipped';
 }
 
 function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
@@ -16,22 +17,29 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
   );
 
   const isTrigger = data.nodeType === 'trigger';
+  const debugStatus = data._debugStatus;
 
-  const headerBg = isTrigger
-    ? 'bg-violet-600'
-    : 'bg-sky-600';
+  const headerBg = isTrigger ? 'bg-violet-600' : 'bg-sky-600';
 
-  const borderColor = selected
-    ? 'border-white'
-    : isTrigger
-      ? 'border-violet-400'
-      : 'border-sky-400';
+  const borderColor =
+    debugStatus === 'success' ? 'border-emerald-500' :
+    debugStatus === 'failed' ? 'border-red-500' :
+    debugStatus === 'skipped' ? 'border-zinc-600' :
+    selected ? 'border-white' :
+    isTrigger ? 'border-violet-400' : 'border-sky-400';
+
+  const opacity = debugStatus === 'skipped' ? 'opacity-40' : '';
 
   return (
     <div
-      className={`min-w-45 rounded-lg border-2 ${borderColor} bg-zinc-900 shadow-lg`}
+      className={`relative min-w-45 rounded-lg border-2 ${borderColor} ${opacity} bg-zinc-900 shadow-lg`}
     >
-      {/* target handle — hidden for trigger nodes that have no upstream */}
+      {debugStatus === 'failed' && (
+        <span className="absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-red-600 text-white text-[9px] font-bold leading-none z-10">
+          !
+        </span>
+      )}
+
       {!isTrigger && (
         <Handle
           type="target"
@@ -51,7 +59,6 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
           {data.label}
         </p>
 
-        {/* single config field for demonstration */}
         <label className="block text-[11px] text-zinc-400 mb-1">
           Value
         </label>

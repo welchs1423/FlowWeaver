@@ -8,20 +8,36 @@ export interface DelayNodeData {
   label: string;
   nodeType: 'delay';
   config: Record<string, string>;
+  _debugStatus?: 'success' | 'failed' | 'skipped';
 }
 
 function DelayNode({ data, selected }: NodeProps<DelayNodeData>) {
   const [amount, setAmount] = useState(data.config?.delayAmount ?? '5');
   const [unit, setUnit] = useState(data.config?.delayUnit ?? 'seconds');
 
-  const borderColor = selected ? 'border-white' : 'border-teal-400';
+  const debugStatus = data._debugStatus;
+
+  const borderColor =
+    debugStatus === 'success' ? 'border-emerald-500' :
+    debugStatus === 'failed' ? 'border-red-500' :
+    debugStatus === 'skipped' ? 'border-zinc-600' :
+    selected ? 'border-white' :
+    'border-teal-400';
+
+  const opacity = debugStatus === 'skipped' ? 'opacity-40' : '';
 
   function sync(key: string, value: string) {
     data.config[key] = value;
   }
 
   return (
-    <div className={`min-w-45 rounded-lg border-2 ${borderColor} bg-zinc-900 shadow-lg`}>
+    <div className={`relative min-w-45 rounded-lg border-2 ${borderColor} ${opacity} bg-zinc-900 shadow-lg`}>
+      {debugStatus === 'failed' && (
+        <span className="absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-red-600 text-white text-[9px] font-bold leading-none z-10">
+          !
+        </span>
+      )}
+
       <Handle
         type="target"
         position={Position.Top}

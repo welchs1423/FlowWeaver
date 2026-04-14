@@ -8,6 +8,7 @@ export interface ConditionNodeData {
   label: string;
   nodeType: 'condition';
   config: Record<string, string>;
+  _debugStatus?: 'success' | 'failed' | 'skipped';
 }
 
 const OPERATORS = ['==', '!=', '>', '<', '>=', '<='];
@@ -17,14 +18,29 @@ function ConditionNode({ data, selected }: NodeProps<ConditionNodeData>) {
   const [operator, setOperator] = useState(data.config?.operator ?? '==');
   const [rightOperand, setRightOperand] = useState(data.config?.rightOperand ?? '');
 
-  const borderColor = selected ? 'border-white' : 'border-amber-400';
+  const debugStatus = data._debugStatus;
+
+  const borderColor =
+    debugStatus === 'success' ? 'border-emerald-500' :
+    debugStatus === 'failed' ? 'border-red-500' :
+    debugStatus === 'skipped' ? 'border-zinc-600' :
+    selected ? 'border-white' :
+    'border-amber-400';
+
+  const opacity = debugStatus === 'skipped' ? 'opacity-40' : '';
 
   function sync(key: string, value: string) {
     data.config[key] = value;
   }
 
   return (
-    <div className={`min-w-52 rounded-lg border-2 ${borderColor} bg-zinc-900 shadow-lg`}>
+    <div className={`relative min-w-52 rounded-lg border-2 ${borderColor} ${opacity} bg-zinc-900 shadow-lg`}>
+      {debugStatus === 'failed' && (
+        <span className="absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-red-600 text-white text-[9px] font-bold leading-none z-10">
+          !
+        </span>
+      )}
+
       <Handle
         type="target"
         position={Position.Top}
@@ -90,7 +106,6 @@ function ConditionNode({ data, selected }: NodeProps<ConditionNodeData>) {
         </div>
       </div>
 
-      {/* true handle — left side of bottom */}
       <Handle
         type="source"
         position={Position.Bottom}
@@ -98,7 +113,6 @@ function ConditionNode({ data, selected }: NodeProps<ConditionNodeData>) {
         style={{ left: '30%' }}
         className="bg-emerald-500! border-emerald-700! w-3! h-3!"
       />
-      {/* false handle — right side of bottom */}
       <Handle
         type="source"
         position={Position.Bottom}

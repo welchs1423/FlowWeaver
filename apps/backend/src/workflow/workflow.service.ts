@@ -1,7 +1,11 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { WorkflowDto } from './dto/workflow.dto';
+import { WorkflowDto, DebugWorkflowDto } from './dto/workflow.dto';
 import { parseDag, DagParseResult } from './dag/dag-parser';
-import { executeWorkflow, ExecutionResult } from './dag/execution-engine';
+import {
+  executeWorkflow,
+  debugExecuteWorkflow,
+  ExecutionResult,
+} from './dag/execution-engine';
 import { TriggerService } from './trigger/trigger.service';
 import { ActionService } from './action/action.service';
 
@@ -24,6 +28,22 @@ export class WorkflowService {
       parseResult,
       this.triggerService,
       this.actionService,
+    );
+  }
+
+  async debug(dto: DebugWorkflowDto): Promise<ExecutionResult> {
+    let parseResult: DagParseResult;
+    try {
+      parseResult = parseDag(dto.nodes, dto.edges);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new BadRequestException(message);
+    }
+    return debugExecuteWorkflow(
+      parseResult,
+      this.triggerService,
+      this.actionService,
+      dto.mockInput ?? {},
     );
   }
 }

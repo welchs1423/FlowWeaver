@@ -64,3 +64,9 @@ export class WorkflowDto {
   @Type(() => EdgeDto)
   edges: EdgeDto[];
 }
+
+export class DebugWorkflowDto extends WorkflowDto {
+  @IsOptional()
+  @IsObject()
+  mockInput?: Record<string, unknown>;
+}
