@@ -13,16 +13,16 @@ export default function Home() {
         </p>
         <div className="flex flex-col items-center gap-3 sm:flex-row">
           <Link
-            href="/canvas"
+            href="/auth/login"
             className="inline-block rounded-lg bg-violet-600 hover:bg-violet-500 px-6 py-2.5 text-sm font-semibold text-white transition-colors"
           >
-            Open Canvas
+            시작하기
           </Link>
           <Link
             href="/dashboard"
             className="inline-block rounded-lg border border-zinc-700 hover:border-zinc-500 px-6 py-2.5 text-sm font-semibold text-zinc-300 hover:text-zinc-100 transition-colors"
           >
-            Monitoring Dashboard
+            대시보드
           </Link>
         </div>
       </main>

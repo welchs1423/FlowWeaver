@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { WorkflowService } from '../workflow/workflow.service';
 import { SaveFlowDto, UpdateFlowDto } from './dto/flow.dto';
@@ -11,30 +15,35 @@ export class FlowsService {
     private readonly workflowService: WorkflowService,
   ) {}
 
-  async create(dto: SaveFlowDto) {
+  async create(dto: SaveFlowDto, userId: string) {
     return this.prisma.flow.create({
       data: {
         name: dto.name,
         dag: JSON.stringify({ nodes: dto.nodes, edges: dto.edges }),
+        userId,
       },
     });
   }
 
-  async findAll() {
-    return this.prisma.flow.findMany({ orderBy: { updatedAt: 'desc' } });
+  async findAll(userId: string) {
+    return this.prisma.flow.findMany({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
+    });
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, userId: string) {
     const flow = await this.prisma.flow.findUnique({
       where: { id },
       include: { executions: { orderBy: { createdAt: 'desc' } } },
     });
     if (!flow) throw new NotFoundException(`Flow ${id} not found`);
+    if (flow.userId !== userId) throw new ForbiddenException();
     return flow;
   }
 
-  async update(id: string, dto: UpdateFlowDto) {
-    const existing = await this.findOne(id);
+  async update(id: string, dto: UpdateFlowDto, userId: string) {
+    const existing = await this.findOne(id, userId);
 
     const data: Record<string, string> = {};
     if (dto.name !== undefined) data.name = dto.name;
@@ -52,13 +61,13 @@ export class FlowsService {
     return this.prisma.flow.update({ where: { id }, data });
   }
 
-  async remove(id: string): Promise<void> {
-    await this.findOne(id);
+  async remove(id: string, userId: string): Promise<void> {
+    await this.findOne(id, userId);
     await this.prisma.flow.delete({ where: { id } });
   }
 
-  async execute(id: string) {
-    const flow = await this.findOne(id);
+  async execute(id: string, userId: string) {
+    const flow = await this.findOne(id, userId);
     const dag = JSON.parse(flow.dag) as {
       nodes: SaveFlowDto['nodes'];
       edges: SaveFlowDto['edges'];
@@ -69,8 +78,10 @@ export class FlowsService {
     let status: string;
 
     try {
-      result = await this.workflowService.execute({ nodes: dag.nodes, edges: dag.edges });
-      // failedAt being set means a node-level error stopped the run
+      result = await this.workflowService.execute({
+        nodes: dag.nodes,
+        edges: dag.edges,
+      });
       status = result.failedAt ? 'failed' : 'success';
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

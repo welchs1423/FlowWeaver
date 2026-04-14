@@ -6,6 +6,7 @@ export interface FlowRecord {
   id: string;
   name: string;
   dag: string;
+  userId: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -47,6 +48,23 @@ export interface ExecuteResponse {
   result: ExecutionResult;
 }
 
+export interface AuthResponse {
+  token: string;
+  user: { id: string; email: string };
+}
+
+function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('fw_token');
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+}
+
 function toApiNodes(nodes: Node[]) {
   return nodes.map((n) => ({
     id: n.id,
@@ -64,6 +82,32 @@ function toApiEdges(edges: Edge[]) {
   }));
 }
 
+export async function register(email: string, password: string): Promise<AuthResponse> {
+  const res = await fetch(`${BASE_URL}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Registration failed (${res.status}): ${text}`);
+  }
+  return res.json() as Promise<AuthResponse>;
+}
+
+export async function login(email: string, password: string): Promise<AuthResponse> {
+  const res = await fetch(`${BASE_URL}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Login failed (${res.status}): ${text}`);
+  }
+  return res.json() as Promise<AuthResponse>;
+}
+
 export async function saveFlow(
   name: string,
   nodes: Node[],
@@ -71,7 +115,7 @@ export async function saveFlow(
 ): Promise<FlowRecord> {
   const res = await fetch(`${BASE_URL}/flows`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify({
       name,
       nodes: toApiNodes(nodes),
@@ -92,7 +136,7 @@ export async function updateFlow(
 ): Promise<FlowRecord> {
   const res = await fetch(`${BASE_URL}/flows/${id}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify({
       nodes: toApiNodes(nodes),
       edges: toApiEdges(edges),
@@ -108,6 +152,7 @@ export async function updateFlow(
 export async function executeFlow(id: string): Promise<ExecuteResponse> {
   const res = await fetch(`${BASE_URL}/flows/${id}/execute`, {
     method: 'POST',
+    headers: authHeaders(),
   });
   if (!res.ok) {
     const text = await res.text();
@@ -116,14 +161,37 @@ export async function executeFlow(id: string): Promise<ExecuteResponse> {
   return res.json() as Promise<ExecuteResponse>;
 }
 
+export async function fetchFlows(): Promise<FlowRecord[]> {
+  const res = await fetch(`${BASE_URL}/flows`, {
+    headers: authHeaders(),
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error(`Failed to fetch flows (${res.status})`);
+  return res.json() as Promise<FlowRecord[]>;
+}
+
+export async function deleteFlow(id: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/flows/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(`Failed to delete flow (${res.status})`);
+}
+
 export async function fetchExecutions(): Promise<ExecutionWithFlow[]> {
-  const res = await fetch(`${BASE_URL}/executions`, { cache: 'no-store' });
+  const res = await fetch(`${BASE_URL}/executions`, {
+    headers: authHeaders(),
+    cache: 'no-store',
+  });
   if (!res.ok) throw new Error(`Failed to fetch executions (${res.status})`);
   return res.json() as Promise<ExecutionWithFlow[]>;
 }
 
 export async function fetchExecution(id: string): Promise<ExecutionWithFlow> {
-  const res = await fetch(`${BASE_URL}/executions/${id}`, { cache: 'no-store' });
+  const res = await fetch(`${BASE_URL}/executions/${id}`, {
+    headers: authHeaders(),
+    cache: 'no-store',
+  });
   if (!res.ok) throw new Error(`Failed to fetch execution ${id} (${res.status})`);
   return res.json() as Promise<ExecutionWithFlow>;
 }

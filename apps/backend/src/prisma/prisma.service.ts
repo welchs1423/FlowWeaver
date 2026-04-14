@@ -10,7 +10,13 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   constructor() {
     const dbUrl = path.join(__dirname, '..', '..', 'prisma', 'dev.db');
     const adapter = new PrismaBetterSqlite3({ url: dbUrl });
-    this.client = new PrismaClient({ adapter } as ConstructorParameters<typeof PrismaClient>[0]);
+    this.client = new PrismaClient({ adapter } as ConstructorParameters<
+      typeof PrismaClient
+    >[0]);
+  }
+
+  get user() {
+    return this.client.user;
   }
 
   get flow() {

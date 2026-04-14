@@ -7,10 +7,20 @@ datasource db {
   provider = "sqlite"
 }
 
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  flows        Flow[]
+}
+
 model Flow {
   id         String      @id @default(cuid())
   name       String
   dag        String      // JSON-serialized DagGraph
+  userId     String
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
   executions Execution[]

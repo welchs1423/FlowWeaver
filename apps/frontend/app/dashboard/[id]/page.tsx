@@ -1,6 +1,10 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { fetchExecution, type StepResult, type ExecutionResult } from '../../lib/api';
+import { fetchExecution, type StepResult, type ExecutionResult, type ExecutionWithFlow } from '../../lib/api';
+import { useAuthStore } from '../../store/authStore';
 
 function StatusBadge({ status }: { status: string }) {
   if (status === 'success') {
@@ -91,19 +95,57 @@ function StepCard({ step }: { step: StepResult }) {
   );
 }
 
-export default async function ExecutionDetailPage({
+function MetaField({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div>
+      <p className="text-xs text-zinc-500">{label}</p>
+      <p
+        className={`mt-0.5 text-zinc-200 truncate ${mono ? 'font-mono text-xs' : 'text-sm'}`}
+        title={value}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+export default function ExecutionDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }) {
-  const { id } = await params;
+  const { init } = useAuthStore();
+  const [execution, setExecution] = useState<ExecutionWithFlow | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  let execution;
-  try {
-    execution = await fetchExecution(id);
-  } catch {
-    notFound();
+  useEffect(() => {
+    init();
+  }, [init]);
+
+  useEffect(() => {
+    fetchExecution(params.id)
+      .then(setExecution)
+      .catch(() => notFound())
+      .finally(() => setLoading(false));
+  }, [params.id]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-950 text-zinc-500">
+        불러오는 중...
+      </div>
+    );
   }
+
+  if (!execution) return null;
 
   const result: ExecutionResult | null = execution.result
     ? (JSON.parse(execution.result) as ExecutionResult)
@@ -129,7 +171,6 @@ export default async function ExecutionDetailPage({
       </header>
 
       <main className="mx-auto max-w-4xl px-6 py-8 space-y-6">
-        {/* 실행 메타 정보 */}
         <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -159,7 +200,6 @@ export default async function ExecutionDetailPage({
           )}
         </div>
 
-        {/* 노드 실행 단계 */}
         {result && result.steps.length > 0 && (
           <section>
             <h2 className="mb-3 text-sm font-medium text-zinc-400">
@@ -173,7 +213,6 @@ export default async function ExecutionDetailPage({
           </section>
         )}
 
-        {/* 실행 로그 */}
         {result && result.log.length > 0 && (
           <section>
             <details>
@@ -195,28 +234,6 @@ export default async function ExecutionDetailPage({
           </div>
         )}
       </main>
-    </div>
-  );
-}
-
-function MetaField({
-  label,
-  value,
-  mono = false,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
-  return (
-    <div>
-      <p className="text-xs text-zinc-500">{label}</p>
-      <p
-        className={`mt-0.5 text-zinc-200 truncate ${mono ? 'font-mono text-xs' : 'text-sm'}`}
-        title={value}
-      >
-        {value}
-      </p>
     </div>
   );
 }
