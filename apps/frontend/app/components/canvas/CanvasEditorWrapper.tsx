@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { Suspense } from 'react';
 import Sidebar from './Sidebar';
 
 // React Flow uses browser-only APIs; skip SSR for the canvas component.
@@ -10,7 +11,9 @@ export default function CanvasEditorWrapper() {
   return (
     <div className="flex flex-1 overflow-hidden">
       <Sidebar />
-      <FlowCanvas />
+      <Suspense fallback={null}>
+        <FlowCanvas />
+      </Suspense>
     </div>
   );
 }

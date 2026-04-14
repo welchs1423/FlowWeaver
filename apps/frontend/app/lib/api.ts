@@ -245,3 +245,82 @@ export async function fetchExecution(id: string): Promise<ExecutionWithFlow> {
   if (!res.ok) throw new Error(`Failed to fetch execution ${id} (${res.status})`);
   return res.json() as Promise<ExecutionWithFlow>;
 }
+
+export async function fetchFlow(id: string): Promise<FlowRecord> {
+  const res = await fetch(`${BASE_URL}/flows/${id}`, {
+    headers: authHeaders(),
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error(`Failed to fetch flow ${id} (${res.status})`);
+  return res.json() as Promise<FlowRecord>;
+}
+
+// ---- Secrets ----
+
+export interface SecretRecord {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
+export async function fetchSecrets(): Promise<SecretRecord[]> {
+  const res = await fetch(`${BASE_URL}/secrets`, {
+    headers: authHeaders(),
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error(`Failed to fetch secrets (${res.status})`);
+  return res.json() as Promise<SecretRecord[]>;
+}
+
+export async function createSecret(name: string, value: string): Promise<SecretRecord> {
+  const res = await fetch(`${BASE_URL}/secrets`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ name, value }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to create secret (${res.status}): ${text}`);
+  }
+  return res.json() as Promise<SecretRecord>;
+}
+
+export async function deleteSecret(id: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/secrets/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(`Failed to delete secret (${res.status})`);
+}
+
+// ---- Flow Versions ----
+
+export interface FlowVersionRecord {
+  id: string;
+  version: number;
+  createdAt: string;
+}
+
+export async function fetchFlowVersions(flowId: string): Promise<FlowVersionRecord[]> {
+  const res = await fetch(`${BASE_URL}/flows/${flowId}/versions`, {
+    headers: authHeaders(),
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error(`Failed to fetch versions (${res.status})`);
+  return res.json() as Promise<FlowVersionRecord[]>;
+}
+
+export async function rollbackFlowVersion(
+  flowId: string,
+  versionId: string,
+): Promise<FlowRecord> {
+  const res = await fetch(`${BASE_URL}/flows/${flowId}/versions/${versionId}/rollback`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Rollback failed (${res.status}): ${text}`);
+  }
+  return res.json() as Promise<FlowRecord>;
+}

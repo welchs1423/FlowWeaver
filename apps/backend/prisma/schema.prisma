@@ -13,27 +13,48 @@ model User {
   passwordHash String
   createdAt    DateTime @default(now())
   flows        Flow[]
+  secrets      Secret[]
 }
 
 model Flow {
-  id         String      @id @default(cuid())
+  id         String        @id @default(cuid())
   name       String
-  dag        String      // JSON-serialized DagGraph
-  status     String      @default("DRAFT") // "DRAFT" | "PUBLISHED"
+  dag        String
+  status     String        @default("DRAFT")
   userId     String
-  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
   executions Execution[]
+  versions   FlowVersion[]
 }
 
 model Execution {
   id         String    @id @default(cuid())
   flowId     String
   flow       Flow      @relation(fields: [flowId], references: [id], onDelete: Cascade)
-  status     String    // "success" | "failed"
+  status     String
   startedAt  DateTime
   finishedAt DateTime?
-  result     String?   // JSON-serialized ExecutionResult
+  result     String?
   createdAt  DateTime  @default(now())
+}
+
+model Secret {
+  id        String   @id @default(cuid())
+  name      String
+  value     String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FlowVersion {
+  id        String   @id @default(cuid())
+  flowId    String
+  flow      Flow     @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  version   Int
+  dag       String
+  createdAt DateTime @default(now())
 }

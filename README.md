@@ -102,6 +102,14 @@ pnpm backend dev
 - **WorkflowService 시그니처 통합**: `executeWithInput` 메서드를 제거하고 `execute(dto, triggerInput?)` 형태로 단일화. 웹훅 트리거(`WebhooksService`)도 동일 메서드 사용
 - `pnpm build` 성공, 백엔드 단위 테스트 31개 전체 통과 (FOR_EACH 3개 + Retry 2개 신규 테스트 포함)
 
+- **시크릿 금고(Secrets Vault) 추가**: Prisma 스키마에 `Secret` 모델 추가. 저장 시 AES-256-CBC로 암호화(`src/common/crypto.util.ts`). `POST /secrets`, `GET /secrets`, `DELETE /secrets/:id` 엔드포인트 구현. 응답에는 암호화된 값 대신 마스킹된 정보만 반환
+- **자격 증명 관리 페이지 (`/credentials`)**: 대시보드 헤더에 "Credentials" 버튼 추가. 이름(예: My Discord Token)과 값을 등록·삭제할 수 있는 페이지 구현
+- **캔버스 Action 노드 시크릿 선택 UI**: Action 노드에 "시크릿 사용" 토글 추가. 활성화 시 등록된 자격 증명을 드롭다운으로 선택 가능. 실행 시 백엔드가 자동으로 복호화하여 주입(`secretRef` → 실제 값 치환)
+- **워크플로우 버전 관리(Versioning) 추가**: Prisma 스키마에 `FlowVersion` 모델 추가. Publish 시마다 현재 DAG JSON을 자동으로 새 버전(v1, v2, v3…)으로 스냅샷 저장
+- **버전 히스토리 패널 (캔버스)**: 저장된 플로우에 "History" 버튼 추가. 클릭 시 오른쪽 상단에 패널이 열려 게시 이력(버전 번호 + 날짜)을 표시. "롤백" 클릭 시 해당 버전의 DAG로 캔버스 상태를 즉시 복원하고 DB도 업데이트
+- **`fromDag` 유틸리티 추가**: 저장된 DAG JSON을 React Flow 노드/엣지로 복원하는 함수 추가. 포지션 정보가 없는 경우 자동 격자 배치로 재현. 버전 롤백 및 플로우 불러오기에 사용
+- `pnpm build` 성공, 백엔드 단위 테스트 31개 전체 통과
+
 ### 2026-04-13
 
 #### 초기 설정

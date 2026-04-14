@@ -6,8 +6,10 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { WorkflowService } from '../workflow/workflow.service';
 import { FlowSchedulerService } from '../scheduler/flow-scheduler.service';
+import { SecretsService } from '../secrets/secrets.service';
 import { SaveFlowDto, UpdateFlowDto } from './dto/flow.dto';
 import type { ExecutionResult } from '../workflow/dag/execution-engine';
+import type { NodeDto } from '../workflow/dto/workflow.dto';
 
 @Injectable()
 export class FlowsService {
@@ -15,6 +17,7 @@ export class FlowsService {
     private readonly prisma: PrismaService,
     private readonly workflowService: WorkflowService,
     private readonly schedulerService: FlowSchedulerService,
+    private readonly secretsService: SecretsService,
   ) {}
 
   async create(dto: SaveFlowDto, userId: string) {
@@ -76,6 +79,16 @@ export class FlowsService {
       data: { status: 'PUBLISHED' },
     });
     this.schedulerService.registerFlow(id, updated.dag);
+
+    const last = await this.prisma.flowVersion.findFirst({
+      where: { flowId: id },
+      orderBy: { version: 'desc' },
+    });
+    const nextVersion = (last?.version ?? 0) + 1;
+    await this.prisma.flowVersion.create({
+      data: { flowId: id, version: nextVersion, dag: updated.dag },
+    });
+
     return updated;
   }
 
@@ -94,12 +107,37 @@ export class FlowsService {
     await this.prisma.flow.delete({ where: { id } });
   }
 
+  async getVersions(id: string, userId: string) {
+    await this.findOne(id, userId);
+    return this.prisma.flowVersion.findMany({
+      where: { flowId: id },
+      orderBy: { version: 'desc' },
+      select: { id: true, version: true, createdAt: true },
+    });
+  }
+
+  async rollback(flowId: string, versionId: string, userId: string) {
+    await this.findOne(flowId, userId);
+    const version = await this.prisma.flowVersion.findUnique({
+      where: { id: versionId },
+    });
+    if (!version || version.flowId !== flowId) {
+      throw new NotFoundException(`Version ${versionId} not found`);
+    }
+    return this.prisma.flow.update({
+      where: { id: flowId },
+      data: { dag: version.dag, status: 'DRAFT' },
+    });
+  }
+
   async execute(id: string, userId: string) {
     const flow = await this.findOne(id, userId);
     const dag = JSON.parse(flow.dag) as {
-      nodes: SaveFlowDto['nodes'];
+      nodes: NodeDto[];
       edges: SaveFlowDto['edges'];
     };
+
+    const resolvedNodes = await this.resolveSecretRefs(dag.nodes, userId);
 
     const startedAt = new Date();
     let result: ExecutionResult;
@@ -107,7 +145,7 @@ export class FlowsService {
 
     try {
       result = await this.workflowService.execute({
-        nodes: dag.nodes,
+        nodes: resolvedNodes,
         edges: dag.edges,
       });
       status = result.failedAt ? 'failed' : 'success';
@@ -130,5 +168,32 @@ export class FlowsService {
     });
 
     return { execution, result };
+  }
+
+  private async resolveSecretRefs(
+    nodes: NodeDto[],
+    userId: string,
+  ): Promise<NodeDto[]> {
+    return Promise.all(
+      nodes.map(async (node) => {
+        const config = node.data?.config as Record<string, string> | undefined;
+        if (!config?.secretRef) return node;
+        try {
+          const plainValue = await this.secretsService.resolveValue(
+            config.secretRef,
+            userId,
+          );
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              config: { ...config, value: plainValue },
+            },
+          };
+        } catch {
+          return node;
+        }
+      }),
+    );
   }
 }

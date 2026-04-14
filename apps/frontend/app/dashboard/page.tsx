@@ -149,6 +149,12 @@ export default function DashboardPage() {
                 {lastUpdated.toLocaleTimeString('ko-KR')}
               </span>
             )}
+            <Link
+              href="/credentials"
+              className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:border-violet-700 hover:text-violet-400 transition-colors"
+            >
+              Credentials
+            </Link>
             <button
               onClick={loadAll}
               className="rounded-md bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-700 transition-colors"

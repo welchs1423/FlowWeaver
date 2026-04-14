@@ -67,4 +67,19 @@ export class FlowsController {
   unpublish(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.flowsService.unpublish(id, user.id);
   }
+
+  @Get(':id/versions')
+  getVersions(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.flowsService.getVersions(id, user.id);
+  }
+
+  @Post(':id/versions/:versionId/rollback')
+  @HttpCode(HttpStatus.OK)
+  rollback(
+    @Param('id') id: string,
+    @Param('versionId') versionId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.flowsService.rollback(id, versionId, user.id);
+  }
 }

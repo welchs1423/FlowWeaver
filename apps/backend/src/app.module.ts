@@ -9,6 +9,7 @@ import { ExecutionsModule } from './executions/executions.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { SecretsModule } from './secrets/secrets.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     AuthModule,
     UsersModule,
     WebhooksModule,
+    SecretsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

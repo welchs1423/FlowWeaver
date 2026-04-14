@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useRef, useMemo, useState } from 'react';
+import { useCallback, useRef, useMemo, useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import ReactFlow, {
   Background,
   Controls,
@@ -12,8 +13,19 @@ import type { Node } from 'reactflow';
 import 'reactflow/dist/style.css';
 
 import { useFlowStore } from '../../store/flowStore';
-import { toDag } from '../../lib/dagUtils';
-import { saveFlow, updateFlow, executeFlow, debugWorkflow, publishFlow, unpublishFlow } from '../../lib/api';
+import { toDag, fromDag } from '../../lib/dagUtils';
+import {
+  saveFlow,
+  updateFlow,
+  executeFlow,
+  debugWorkflow,
+  publishFlow,
+  unpublishFlow,
+  fetchFlow,
+  fetchFlowVersions,
+  rollbackFlowVersion,
+  type FlowVersionRecord,
+} from '../../lib/api';
 import type { ExecutionResult, StepResult } from '../../lib/api';
 import CustomNode from './CustomNode';
 import ConditionNode from './ConditionNode';
@@ -36,7 +48,8 @@ function generateId(): string {
 type ActionStatus = 'idle' | 'loading' | 'success' | 'error';
 
 export default function FlowCanvas() {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, savedFlowId, setSavedFlowId } =
+  const searchParams = useSearchParams();
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, setSavedFlowId, savedFlowId, reset } =
     useFlowStore();
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -52,9 +65,36 @@ export default function FlowCanvas() {
   const [showMockModal, setShowMockModal] = useState(false);
   const [selectedDebugNodeId, setSelectedDebugNodeId] = useState<string | null>(null);
 
+  const [showVersionPanel, setShowVersionPanel] = useState(false);
+  const [versions, setVersions] = useState<FlowVersionRecord[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+  const [rollbackStatus, setRollbackStatus] = useState<ActionStatus>('idle');
+
   const dag = useMemo(() => toDag(nodes, edges), [nodes, edges]);
 
-  // Merge debug status into node data for visual feedback
+  // Load flow from URL param on mount
+  useEffect(() => {
+    const flowId = searchParams.get('flowId');
+    if (!flowId) return;
+    if (savedFlowId === flowId) return;
+
+    fetchFlow(flowId)
+      .then((flow) => {
+        const { nodes: rfNodes, edges: rfEdges } = fromDag(flow.dag);
+        reset();
+        rfNodes.forEach((n) => addNode(n));
+        setSavedFlowId(flow.id);
+        setFlowStatus(flow.status as 'DRAFT' | 'PUBLISHED');
+        // Restore edges via store bulk-set would require extending the store;
+        // use onEdgesChange workaround via direct state replacement
+        useFlowStore.setState({ edges: rfEdges });
+      })
+      .catch(() => {
+        // Flow not found or auth error — proceed with empty canvas
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const displayNodes = useMemo(() => {
     if (!debugResult) return nodes;
     return nodes.map((node) => {
@@ -154,6 +194,7 @@ export default function FlowCanvas() {
       const record = await publishFlow(savedFlowId);
       setFlowStatus(record.status);
       setPublishStatus('success');
+      setVersions([]);
       setTimeout(() => setPublishStatus('idle'), 2000);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : String(err));
@@ -247,6 +288,46 @@ export default function FlowCanvas() {
     [debugResult]
   );
 
+  const handleOpenVersionPanel = useCallback(async () => {
+    if (!savedFlowId) return;
+    setShowVersionPanel(true);
+    setVersionsLoading(true);
+    try {
+      const data = await fetchFlowVersions(savedFlowId);
+      setVersions(data);
+    } catch {
+      setVersions([]);
+    } finally {
+      setVersionsLoading(false);
+    }
+  }, [savedFlowId]);
+
+  const handleRollback = useCallback(
+    async (versionId: string) => {
+      if (!savedFlowId) return;
+      if (!confirm('이 버전으로 캔버스를 되돌리겠습니까? 저장되지 않은 변경 사항은 사라집니다.')) return;
+      setRollbackStatus('loading');
+      try {
+        const flow = await rollbackFlowVersion(savedFlowId, versionId);
+        const { nodes: rfNodes, edges: rfEdges } = fromDag(flow.dag);
+        reset();
+        rfNodes.forEach((n) => addNode(n));
+        setSavedFlowId(flow.id);
+        setFlowStatus(flow.status as 'DRAFT' | 'PUBLISHED');
+        useFlowStore.setState({ edges: rfEdges });
+        setShowVersionPanel(false);
+        setDebugResult(null);
+        setRollbackStatus('success');
+        setTimeout(() => setRollbackStatus('idle'), 2000);
+      } catch (err) {
+        setErrorMsg(err instanceof Error ? err.message : String(err));
+        setRollbackStatus('error');
+        setTimeout(() => setRollbackStatus('idle'), 3000);
+      }
+    },
+    [savedFlowId, reset, addNode, setSavedFlowId]
+  );
+
   const saveBtnLabel =
     saveStatus === 'loading' ? 'Saving…'
     : saveStatus === 'success' ? 'Saved'
@@ -272,7 +353,6 @@ export default function FlowCanvas() {
     : debugStatus === 'error' ? 'Error'
     : 'Test Run';
 
-  // Detail panel for selected debug node
   const selectedStep: StepResult | undefined = debugResult?.steps.find(
     (s) => s.nodeId === selectedDebugNodeId
   );
@@ -320,6 +400,14 @@ export default function FlowCanvas() {
         )}
 
         <div className="ml-auto flex items-center gap-2">
+          {savedFlowId && (
+            <button
+              onClick={handleOpenVersionPanel}
+              className="px-3 py-1 rounded text-xs font-medium bg-zinc-700 hover:bg-zinc-600 text-zinc-300 transition-colors"
+            >
+              History
+            </button>
+          )}
           <button
             onClick={handleSave}
             disabled={saveStatus === 'loading'}
@@ -368,7 +456,6 @@ export default function FlowCanvas() {
         </div>
       </div>
 
-      {/* execution log panel */}
       {lastLog.length > 0 && (
         <div className="px-4 py-2 bg-zinc-900 border-b border-zinc-800 text-xs font-mono text-zinc-400 max-h-32 overflow-y-auto">
           {lastLog.map((line, i) => (
@@ -377,14 +464,12 @@ export default function FlowCanvas() {
         </div>
       )}
 
-      {/* error message */}
       {errorMsg && (
         <div className="px-4 py-1 bg-red-950 border-b border-red-800 text-xs text-red-400">
           {errorMsg}
         </div>
       )}
 
-      {/* canvas */}
       <div ref={reactFlowWrapper} className="flex-1 bg-zinc-950 relative">
         <ReactFlow
           nodes={displayNodes}
@@ -491,9 +576,61 @@ export default function FlowCanvas() {
             </div>
           </div>
         )}
+
+        {/* version history panel */}
+        {showVersionPanel && (
+          <div className="absolute top-4 right-4 w-72 bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl z-50 text-xs overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-2.5 border-b border-zinc-700 bg-zinc-800">
+              <span className="font-semibold text-white">버전 히스토리</span>
+              <button
+                onClick={() => setShowVersionPanel(false)}
+                className="text-zinc-400 hover:text-white ml-2"
+              >
+                x
+              </button>
+            </div>
+
+            <div className="max-h-80 overflow-y-auto">
+              {versionsLoading ? (
+                <div className="px-4 py-6 text-center text-zinc-500">불러오는 중…</div>
+              ) : versions.length === 0 ? (
+                <div className="px-4 py-6 text-center text-zinc-500">
+                  저장된 버전이 없습니다.
+                  <br />
+                  <span className="text-zinc-600">Publish 시 자동으로 버전이 생성됩니다.</span>
+                </div>
+              ) : (
+                versions.map((v) => (
+                  <div
+                    key={v.id}
+                    className="flex items-center justify-between px-3 py-2.5 border-b border-zinc-800/60 hover:bg-zinc-800/40"
+                  >
+                    <div>
+                      <span className="font-medium text-zinc-200">v{v.version}</span>
+                      <span className="ml-2 text-zinc-500">
+                        {new Date(v.createdAt).toLocaleString('ko-KR', {
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleRollback(v.id)}
+                      disabled={rollbackStatus === 'loading'}
+                      className="text-violet-400 hover:text-violet-300 transition-colors disabled:opacity-40 shrink-0 ml-2"
+                    >
+                      {rollbackStatus === 'loading' ? '…' : '롤백'}
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* mock input modal */}
       {showMockModal && (
         <MockInputModal
           onConfirm={handleTestRun}

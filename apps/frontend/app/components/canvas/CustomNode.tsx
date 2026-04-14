@@ -1,8 +1,9 @@
 'use client';
 
-import { memo, useState } from 'react';
+import { memo, useState, useEffect } from 'react';
 import { Handle, Position } from 'reactflow';
 import type { NodeProps } from 'reactflow';
+import { useSecretsStore } from '../../store/secretsStore';
 
 export interface CustomNodeData {
   label: string;
@@ -15,9 +16,19 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
   const [configValue, setConfigValue] = useState(data.config?.value ?? '');
   const [maxRetries, setMaxRetries] = useState(data.config?.maxRetries ?? '0');
   const [retryDelay, setRetryDelay] = useState(data.config?.retryDelay ?? '1000');
+  const [useSecret, setUseSecret] = useState(
+    data.config?.useSecret === 'true' ? true : false,
+  );
+  const [secretRef, setSecretRef] = useState(data.config?.secretRef ?? '');
+
+  const { secrets, loaded, load } = useSecretsStore();
 
   const isTrigger = data.nodeType === 'trigger';
   const debugStatus = data._debugStatus;
+
+  useEffect(() => {
+    if (!loaded) load();
+  }, [loaded, load]);
 
   const headerBg = isTrigger ? 'bg-violet-600' : 'bg-sky-600';
 
@@ -29,6 +40,20 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
     isTrigger ? 'border-violet-400' : 'border-sky-400';
 
   const opacity = debugStatus === 'skipped' ? 'opacity-40' : '';
+
+  function handleUseSecretToggle(checked: boolean) {
+    setUseSecret(checked);
+    data.config.useSecret = checked ? 'true' : 'false';
+    if (!checked) {
+      data.config.secretRef = '';
+      setSecretRef('');
+    }
+  }
+
+  function handleSecretRefChange(id: string) {
+    setSecretRef(id);
+    data.config.secretRef = id;
+  }
 
   return (
     <div
@@ -59,19 +84,51 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
           {data.label}
         </p>
 
-        <div className="flex flex-col gap-1">
-          <label className="text-[11px] text-zinc-400">Value</label>
-          <input
-            type="text"
-            value={configValue}
-            onChange={(e) => {
-              setConfigValue(e.target.value);
-              data.config.value = e.target.value;
-            }}
-            placeholder="Enter value..."
-            className="nodrag w-full rounded bg-zinc-800 border border-zinc-700 px-2 py-1 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500"
-          />
-        </div>
+        {!isTrigger && (
+          <div className="flex items-center gap-2 pb-1 border-b border-zinc-800">
+            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={useSecret}
+                onChange={(e) => handleUseSecretToggle(e.target.checked)}
+                className="nodrag w-3 h-3 accent-violet-500"
+              />
+              <span className="text-[11px] text-zinc-400">시크릿 사용</span>
+            </label>
+          </div>
+        )}
+
+        {!isTrigger && useSecret ? (
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-zinc-400">Credential</label>
+            <select
+              value={secretRef}
+              onChange={(e) => handleSecretRefChange(e.target.value)}
+              className="nodrag w-full rounded bg-zinc-800 border border-zinc-700 px-2 py-1 text-xs text-white focus:outline-none focus:border-violet-500"
+            >
+              <option value="">-- 선택 --</option>
+              {secrets.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-zinc-400">Value</label>
+            <input
+              type="text"
+              value={configValue}
+              onChange={(e) => {
+                setConfigValue(e.target.value);
+                data.config.value = e.target.value;
+              }}
+              placeholder="Enter value..."
+              className="nodrag w-full rounded bg-zinc-800 border border-zinc-700 px-2 py-1 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500"
+            />
+          </div>
+        )}
 
         {!isTrigger && (
           <div className="flex gap-2 pt-1 border-t border-zinc-800">
