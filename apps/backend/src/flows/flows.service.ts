@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { WorkflowService } from '../workflow/workflow.service';
+import { FlowSchedulerService } from '../scheduler/flow-scheduler.service';
 import { SaveFlowDto, UpdateFlowDto } from './dto/flow.dto';
 import type { ExecutionResult } from '../workflow/dag/execution-engine';
 
@@ -13,6 +14,7 @@ export class FlowsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly workflowService: WorkflowService,
+    private readonly schedulerService: FlowSchedulerService,
   ) {}
 
   async create(dto: SaveFlowDto, userId: string) {
@@ -58,7 +60,33 @@ export class FlowsService {
       });
     }
 
-    return this.prisma.flow.update({ where: { id }, data });
+    const updated = await this.prisma.flow.update({ where: { id }, data });
+
+    if (updated.status === 'PUBLISHED' && data.dag !== undefined) {
+      this.schedulerService.registerFlow(id, updated.dag);
+    }
+
+    return updated;
+  }
+
+  async publish(id: string, userId: string) {
+    await this.findOne(id, userId);
+    const updated = await this.prisma.flow.update({
+      where: { id },
+      data: { status: 'PUBLISHED' },
+    });
+    this.schedulerService.registerFlow(id, updated.dag);
+    return updated;
+  }
+
+  async unpublish(id: string, userId: string) {
+    await this.findOne(id, userId);
+    const updated = await this.prisma.flow.update({
+      where: { id },
+      data: { status: 'DRAFT' },
+    });
+    this.schedulerService.unregisterFlow(id);
+    return updated;
   }
 
   async remove(id: string, userId: string): Promise<void> {

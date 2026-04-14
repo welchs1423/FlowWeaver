@@ -19,6 +19,7 @@ model Flow {
   id         String      @id @default(cuid())
   name       String
   dag        String      // JSON-serialized DagGraph
+  status     String      @default("DRAFT") // "DRAFT" | "PUBLISHED"
   userId     String
   user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt  DateTime    @default(now())

@@ -227,6 +227,7 @@ export async function executeWorkflow(
   parseResult: DagParseResult,
   triggerService: TriggerService,
   actionService: ActionService,
+  triggerInput?: Record<string, unknown>,
 ): Promise<ExecutionResult> {
   const logger = new Logger('ExecutionEngine');
   const executedNodes: string[] = [];
@@ -273,6 +274,9 @@ export async function executeWorkflow(
 
     try {
       if (node.type === NodeType.TRIGGER) {
+        if (triggerInput) {
+          Object.assign(inputContext, triggerInput);
+        }
         record(`[TRIGGER] id=${node.id} label="${node.label}" — fired`);
         output = triggerService.fire(node, inputContext);
       } else if (node.type === NodeType.CONDITION) {

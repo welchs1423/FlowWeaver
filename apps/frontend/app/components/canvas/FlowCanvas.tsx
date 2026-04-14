@@ -13,7 +13,7 @@ import 'reactflow/dist/style.css';
 
 import { useFlowStore } from '../../store/flowStore';
 import { toDag } from '../../lib/dagUtils';
-import { saveFlow, updateFlow, executeFlow, debugWorkflow } from '../../lib/api';
+import { saveFlow, updateFlow, executeFlow, debugWorkflow, publishFlow, unpublishFlow } from '../../lib/api';
 import type { ExecutionResult, StepResult } from '../../lib/api';
 import CustomNode from './CustomNode';
 import ConditionNode from './ConditionNode';
@@ -42,6 +42,8 @@ export default function FlowCanvas() {
   const [saveStatus, setSaveStatus] = useState<ActionStatus>('idle');
   const [runStatus, setRunStatus] = useState<ActionStatus>('idle');
   const [debugStatus, setDebugStatus] = useState<ActionStatus>('idle');
+  const [publishStatus, setPublishStatus] = useState<ActionStatus>('idle');
+  const [flowStatus, setFlowStatus] = useState<'DRAFT' | 'PUBLISHED' | null>(null);
   const [lastLog, setLastLog] = useState<string[]>([]);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [debugResult, setDebugResult] = useState<ExecutionResult | null>(null);
@@ -130,6 +132,7 @@ export default function FlowCanvas() {
         const flowName = `Flow ${new Date().toLocaleString()}`;
         const record = await saveFlow(flowName, nodes, edges);
         setSavedFlowId(record.id);
+        setFlowStatus(record.status);
       }
       setSaveStatus('success');
       setTimeout(() => setSaveStatus('idle'), 2000);
@@ -139,6 +142,38 @@ export default function FlowCanvas() {
       setTimeout(() => setSaveStatus('idle'), 3000);
     }
   }, [nodes, edges, savedFlowId, setSavedFlowId]);
+
+  const handlePublish = useCallback(async () => {
+    if (!savedFlowId) return;
+    setPublishStatus('loading');
+    setErrorMsg('');
+    try {
+      const record = await publishFlow(savedFlowId);
+      setFlowStatus(record.status);
+      setPublishStatus('success');
+      setTimeout(() => setPublishStatus('idle'), 2000);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : String(err));
+      setPublishStatus('error');
+      setTimeout(() => setPublishStatus('idle'), 3000);
+    }
+  }, [savedFlowId]);
+
+  const handleUnpublish = useCallback(async () => {
+    if (!savedFlowId) return;
+    setPublishStatus('loading');
+    setErrorMsg('');
+    try {
+      const record = await unpublishFlow(savedFlowId);
+      setFlowStatus(record.status);
+      setPublishStatus('success');
+      setTimeout(() => setPublishStatus('idle'), 2000);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : String(err));
+      setPublishStatus('error');
+      setTimeout(() => setPublishStatus('idle'), 3000);
+    }
+  }, [savedFlowId]);
 
   const handleRun = useCallback(async () => {
     setRunStatus('loading');
@@ -216,6 +251,12 @@ export default function FlowCanvas() {
     : savedFlowId ? 'Update'
     : 'Save';
 
+  const publishBtnLabel =
+    publishStatus === 'loading' ? (flowStatus === 'PUBLISHED' ? 'Unpublishing…' : 'Publishing…')
+    : publishStatus === 'error' ? 'Error'
+    : flowStatus === 'PUBLISHED' ? 'Unpublish'
+    : 'Publish';
+
   const runBtnLabel =
     runStatus === 'loading' ? 'Running…'
     : runStatus === 'success' ? 'Done'
@@ -251,6 +292,14 @@ export default function FlowCanvas() {
             </span>
           </>
         )}
+        {flowStatus && (
+          <>
+            <span className="text-zinc-700">|</span>
+            <span className={flowStatus === 'PUBLISHED' ? 'text-emerald-400 font-medium' : 'text-zinc-500'}>
+              {flowStatus === 'PUBLISHED' ? 'published' : 'draft'}
+            </span>
+          </>
+        )}
         {debugResult && (
           <>
             <span className="text-zinc-700">|</span>
@@ -278,6 +327,18 @@ export default function FlowCanvas() {
             `}
           >
             {saveBtnLabel}
+          </button>
+          <button
+            onClick={flowStatus === 'PUBLISHED' ? handleUnpublish : handlePublish}
+            disabled={!savedFlowId || publishStatus === 'loading'}
+            className={`px-3 py-1 rounded text-xs font-medium transition-colors disabled:opacity-50
+              ${publishStatus === 'error' ? 'bg-red-700 text-white' : ''}
+              ${flowStatus === 'PUBLISHED' && publishStatus !== 'error'
+                ? 'bg-emerald-700 hover:bg-emerald-600 text-white'
+                : publishStatus !== 'error' ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : ''}
+            `}
+          >
+            {publishBtnLabel}
           </button>
           <button
             onClick={() => setShowMockModal(true)}

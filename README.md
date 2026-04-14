@@ -86,6 +86,13 @@ pnpm backend dev
 - **노드 상세 패널**: 테스트 실행 후 캔버스의 노드를 클릭하면 해당 노드의 실행 상태, Input/Output JSON, 에러 메시지를 보여주는 패널이 캔버스 우하단에 표시됨. 동일 노드 재클릭 또는 `x` 버튼으로 닫기
 - **`StepResult` 인터페이스 확장**: 기존 `output`에 더해 `input` 필드 추가 (선택적). 디버그 엔진에서 각 노드의 입력 컨텍스트를 캡처해 프론트엔드로 전달
 - `pnpm build` 성공, 백엔드 단위 테스트 26개 전체 통과
+- **배포(Publish) 상태 관리**: `Flow` 모델에 `status` 필드(`DRAFT` / `PUBLISHED`) 추가. Prisma 스키마 업데이트 후 `prisma db push` 및 `prisma generate` 실행. 신규 플로우는 기본값 `DRAFT`로 생성됨
+- **Publish / Unpublish 엔드포인트**: `PATCH /flows/:id/publish`, `PATCH /flows/:id/unpublish` 추가. JwtAuthGuard로 보호되며 본인 플로우만 상태 변경 가능
+- **캔버스 툴바 Publish 버튼**: 플로우 저장 후 활성화되는 Publish/Unpublish 토글 버튼 추가. 배포 상태가 `PUBLISHED`이면 버튼이 초록색으로 표시되고 툴바 상태 바에 `published` 배지 노출
+- **스케줄링 트리거 연동 (`@nestjs/schedule`)**: `@nestjs/schedule` 패키지 설치. `FlowSchedulerService`가 플로우 배포 시 DAG의 시작 노드가 `Schedule(Cron)` 타입이면 `SchedulerRegistry`에 동적 크론 잡 등록, Unpublish 시 자동 삭제. 서버 재시작 시 `onModuleInit`에서 DB의 모든 PUBLISHED 플로우를 조회해 잡을 복원
+- **웹훅 트리거 연동**: `POST /webhooks/:flowId` 엔드포인트 추가 (인증 불필요). 플로우가 `PUBLISHED` 상태인지 확인 후 요청 Body를 Trigger 노드의 입력 컨텍스트로 주입해 워크플로우 실행 엔진 가동. 실행 결과는 `Execution` 레코드에 저장
+- **실행 엔진 triggerInput 파라미터 추가**: `executeWorkflow` 함수에 선택적 `triggerInput` 파라미터 추가. 웹훅 Body 등 외부 입력을 Trigger 노드 컨텍스트에 병합 가능
+- `pnpm build` 성공, 백엔드 단위 테스트 26개 전체 통과
 
 ### 2026-04-13
 

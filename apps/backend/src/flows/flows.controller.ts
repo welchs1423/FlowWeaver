@@ -55,4 +55,16 @@ export class FlowsController {
   execute(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.flowsService.execute(id, user.id);
   }
+
+  @Patch(':id/publish')
+  @HttpCode(HttpStatus.OK)
+  publish(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.flowsService.publish(id, user.id);
+  }
+
+  @Patch(':id/unpublish')
+  @HttpCode(HttpStatus.OK)
+  unpublish(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.flowsService.unpublish(id, user.id);
+  }
 }

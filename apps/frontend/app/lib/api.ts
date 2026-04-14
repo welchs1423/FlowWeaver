@@ -6,6 +6,7 @@ export interface FlowRecord {
   id: string;
   name: string;
   dag: string;
+  status: 'DRAFT' | 'PUBLISHED';
   userId: string;
   createdAt: string;
   updatedAt: string;
@@ -182,6 +183,30 @@ export async function debugWorkflow(
     throw new Error(`Debug run failed (${res.status}): ${text}`);
   }
   return res.json() as Promise<ExecutionResult>;
+}
+
+export async function publishFlow(id: string): Promise<FlowRecord> {
+  const res = await fetch(`${BASE_URL}/flows/${id}/publish`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Publish failed (${res.status}): ${text}`);
+  }
+  return res.json() as Promise<FlowRecord>;
+}
+
+export async function unpublishFlow(id: string): Promise<FlowRecord> {
+  const res = await fetch(`${BASE_URL}/flows/${id}/unpublish`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Unpublish failed (${res.status}): ${text}`);
+  }
+  return res.json() as Promise<FlowRecord>;
 }
 
 export async function fetchFlows(): Promise<FlowRecord[]> {
