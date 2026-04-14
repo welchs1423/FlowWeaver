@@ -94,6 +94,14 @@ pnpm backend dev
 - **실행 엔진 triggerInput 파라미터 추가**: `executeWorkflow` 함수에 선택적 `triggerInput` 파라미터 추가. 웹훅 Body 등 외부 입력을 Trigger 노드 컨텍스트에 병합 가능
 - `pnpm build` 성공, 백엔드 단위 테스트 26개 전체 통과
 
+- **For-Each(반복) 노드 추가**: `NodeType`에 `FOR_EACH = 'foreach'` 추가. 백엔드 실행 엔진에서 배열 필드를 순회하며 하위 노드를 각 항목마다 반복 실행하는 `executeForEachBody` 서브-그래프 실행 로직 구현. 반복 실행된 스텝은 `iterationIndex`와 함께 `Execution` 로그에 기록
+- **자동 재시도(Retry) 메커니즘 추가**: Action 노드 설정에 `maxRetries`(최대 재시도 횟수)와 `retryDelay`(재시도 대기 시간 ms) 필드 추가. 백엔드 실행 엔진에서 에러 발생 시 설정 횟수만큼 재시도하는 `executeWithRetry` 헬퍼 구현. 성공 시 `retryCount`가 `StepResult`에 기록되고 `[RETRY]` 로그가 생성됨
+- **실행 로그 상세화**: `StepResult` 인터페이스에 `iterationIndex`(현재 반복 인덱스)와 `retryCount`(재시도 발생 횟수) 필드 추가. `FlowExecution` DB 결과 JSON에 포함되어 대시보드에서 확인 가능
+- **프론트엔드 ForEachNode 컴포넌트**: 보라색(purple) 헤더의 `ForEachNode.tsx` 추가. `Array Field` 설정 입력을 통해 컨텍스트에서 순회할 배열 키를 지정. 사이드바 "Control Flow" 섹션에 등록
+- **프론트엔드 CustomNode Retry 설정 UI**: Action 노드에 `Max Retries`와 `Retry Delay (ms)` 입력 필드 추가 (Trigger 노드에는 표시 안 됨)
+- **WorkflowService 시그니처 통합**: `executeWithInput` 메서드를 제거하고 `execute(dto, triggerInput?)` 형태로 단일화. 웹훅 트리거(`WebhooksService`)도 동일 메서드 사용
+- `pnpm build` 성공, 백엔드 단위 테스트 31개 전체 통과 (FOR_EACH 3개 + Retry 2개 신규 테스트 포함)
+
 ### 2026-04-13
 
 #### 초기 설정

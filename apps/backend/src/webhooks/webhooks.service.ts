@@ -27,7 +27,7 @@ export class WebhooksService {
     let execStatus: string;
 
     try {
-      result = await this.workflowService.executeWithInput(
+      result = await this.workflowService.execute(
         { nodes: dag.nodes, edges: dag.edges },
         body,
       );

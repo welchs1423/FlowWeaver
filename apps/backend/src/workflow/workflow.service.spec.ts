@@ -283,6 +283,191 @@ describe('WorkflowService', () => {
     });
   });
 
+  describe('for-each node', () => {
+    it('iterates over an array and executes body nodes for each item', async () => {
+      const dto = buildDto(
+        [
+          {
+            id: 't1',
+            type: NodeType.TRIGGER,
+            label: 'Start',
+            data: { kind: NodeKind.WEBHOOK },
+          },
+          {
+            id: 'fe1',
+            type: NodeType.FOR_EACH,
+            label: 'Loop',
+            data: { config: { arrayField: 'items' } },
+          },
+          {
+            id: 'a1',
+            type: NodeType.ACTION,
+            label: 'Body',
+            data: { kind: NodeKind.DATA_TRANSFORM },
+          },
+        ],
+        [
+          { id: 'e1', source: 't1', target: 'fe1' },
+          { id: 'e2', source: 'fe1', target: 'a1' },
+        ],
+      );
+
+      // Provide an array via triggerInput so the forEach can iterate
+      const result = await service.execute(dto, { items: ['x', 'y', 'z'] });
+
+      expect(result.executedNodes).toContain('fe1');
+      expect(result.log.some((l) => l.includes('[FOR_EACH]'))).toBe(true);
+      // body node a1 runs once per item — 3 steps for a1
+      const bodySteps = result.steps.filter((s) => s.nodeId === 'a1');
+      expect(bodySteps).toHaveLength(3);
+      expect(bodySteps[0].iterationIndex).toBe(0);
+      expect(bodySteps[1].iterationIndex).toBe(1);
+      expect(bodySteps[2].iterationIndex).toBe(2);
+      expect(result.failedAt).toBeUndefined();
+    });
+
+    it('passes __iterationIndex into each iteration context', async () => {
+      const dto = buildDto(
+        [
+          {
+            id: 't1',
+            type: NodeType.TRIGGER,
+            label: 'Start',
+            data: { kind: NodeKind.WEBHOOK },
+          },
+          {
+            id: 'fe1',
+            type: NodeType.FOR_EACH,
+            label: 'Loop',
+            data: { config: { arrayField: 'items' } },
+          },
+          {
+            id: 'a1',
+            type: NodeType.ACTION,
+            label: 'Body',
+            data: { kind: NodeKind.DATA_TRANSFORM, mapping: { idx: '__iterationIndex' } },
+          },
+        ],
+        [
+          { id: 'e1', source: 't1', target: 'fe1' },
+          { id: 'e2', source: 'fe1', target: 'a1' },
+        ],
+      );
+
+      const result = await service.execute(dto, { items: ['a', 'b'] });
+      const bodySteps = result.steps.filter((s) => s.nodeId === 'a1');
+      expect(bodySteps[0].output?.idx).toBe(0);
+      expect(bodySteps[1].output?.idx).toBe(1);
+    });
+
+    it('records iterationCount on for-each node output', async () => {
+      const dto = buildDto(
+        [
+          {
+            id: 't1',
+            type: NodeType.TRIGGER,
+            label: 'Start',
+            data: { kind: NodeKind.WEBHOOK },
+          },
+          {
+            id: 'fe1',
+            type: NodeType.FOR_EACH,
+            label: 'Loop',
+            data: { config: { arrayField: 'items' } },
+          },
+        ],
+        [{ id: 'e1', source: 't1', target: 'fe1' }],
+      );
+
+      const result = await service.execute(dto, { items: [1, 2, 3, 4] });
+      expect(result.contextMap['fe1']?.iterationCount).toBe(4);
+    });
+  });
+
+  describe('retry mechanism', () => {
+    it('retries a failing action node the configured number of times', async () => {
+      let callCount = 0;
+      global.fetch = jest.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount <= 2) {
+          return Promise.reject(new Error('transient error'));
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ ok: true }),
+          text: () => Promise.resolve(''),
+        });
+      });
+
+      const dto = buildDto(
+        [
+          {
+            id: 't1',
+            type: NodeType.TRIGGER,
+            label: 'Start',
+            data: { kind: NodeKind.WEBHOOK },
+          },
+          {
+            id: 'a1',
+            type: NodeType.ACTION,
+            label: 'HTTP',
+            data: {
+              kind: NodeKind.HTTP_REQUEST,
+              url: 'https://example.com',
+              config: { maxRetries: '3', retryDelay: '0' },
+            },
+          },
+        ],
+        [{ id: 'e1', source: 't1', target: 'a1' }],
+      );
+
+      const result = await service.execute(dto);
+
+      expect(result.failedAt).toBeUndefined();
+      expect(result.steps.find((s) => s.nodeId === 'a1')?.status).toBe('success');
+      expect(result.steps.find((s) => s.nodeId === 'a1')?.retryCount).toBe(2);
+      expect(result.log.some((l) => l.includes('[RETRY]'))).toBe(true);
+
+      jest.restoreAllMocks();
+    });
+
+    it('fails after exhausting all retries', async () => {
+      global.fetch = jest.fn().mockRejectedValue(new Error('always fails'));
+
+      const dto = buildDto(
+        [
+          {
+            id: 't1',
+            type: NodeType.TRIGGER,
+            label: 'Start',
+            data: { kind: NodeKind.WEBHOOK },
+          },
+          {
+            id: 'a1',
+            type: NodeType.ACTION,
+            label: 'HTTP',
+            data: {
+              kind: NodeKind.HTTP_REQUEST,
+              url: 'https://example.com',
+              config: { maxRetries: '2', retryDelay: '0' },
+            },
+          },
+        ],
+        [{ id: 'e1', source: 't1', target: 'a1' }],
+      );
+
+      const result = await service.execute(dto);
+
+      expect(result.failedAt).toBe('a1');
+      expect(result.steps.find((s) => s.nodeId === 'a1')?.status).toBe('failed');
+      // 1 initial + 2 retries = 3 total calls
+      expect((global.fetch as jest.Mock).mock.calls).toHaveLength(3);
+
+      jest.restoreAllMocks();
+    });
+  });
+
   describe('delay node', () => {
     it('executes downstream after delay and passes context through', async () => {
       const dto = buildDto(

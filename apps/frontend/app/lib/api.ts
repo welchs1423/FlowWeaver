@@ -31,6 +31,8 @@ export interface StepResult {
   error?: string;
   startedAt: string;
   finishedAt: string;
+  iterationIndex?: number;
+  retryCount?: number;
 }
 
 export interface ExecutionResult {

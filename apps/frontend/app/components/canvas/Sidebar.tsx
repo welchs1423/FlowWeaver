@@ -3,7 +3,7 @@
 import type { DragEvent } from 'react';
 
 interface NodeTemplate {
-  nodeType: 'trigger' | 'action' | 'condition' | 'delay';
+  nodeType: 'trigger' | 'action' | 'condition' | 'delay' | 'foreach';
   label: string;
   description: string;
 }
@@ -24,6 +24,7 @@ const ACTION_NODES: NodeTemplate[] = [
 const CONTROL_NODES: NodeTemplate[] = [
   { nodeType: 'condition', label: 'Condition', description: 'Branches flow on True / False' },
   { nodeType: 'delay', label: 'Delay', description: 'Pauses execution for a set time' },
+  { nodeType: 'foreach', label: 'For Each', description: 'Iterates over an array field' },
 ];
 
 const nodeCardStyles: Record<string, string> = {
@@ -31,6 +32,7 @@ const nodeCardStyles: Record<string, string> = {
   action: 'border-sky-700 bg-sky-950 hover:bg-sky-900',
   condition: 'border-amber-700 bg-amber-950 hover:bg-amber-900',
   delay: 'border-teal-700 bg-teal-950 hover:bg-teal-900',
+  foreach: 'border-purple-700 bg-purple-950 hover:bg-purple-900',
 };
 
 function NodeCard({ template }: { template: NodeTemplate }) {

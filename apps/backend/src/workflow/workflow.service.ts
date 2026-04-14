@@ -16,24 +16,9 @@ export class WorkflowService {
     private readonly actionService: ActionService,
   ) {}
 
-  async execute(dto: WorkflowDto): Promise<ExecutionResult> {
-    let parseResult: DagParseResult;
-    try {
-      parseResult = parseDag(dto.nodes, dto.edges);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      throw new BadRequestException(message);
-    }
-    return executeWorkflow(
-      parseResult,
-      this.triggerService,
-      this.actionService,
-    );
-  }
-
-  async executeWithInput(
+  async execute(
     dto: WorkflowDto,
-    triggerInput: Record<string, unknown>,
+    triggerInput?: Record<string, unknown>,
   ): Promise<ExecutionResult> {
     let parseResult: DagParseResult;
     try {

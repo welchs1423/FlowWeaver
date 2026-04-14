@@ -18,12 +18,14 @@ import type { ExecutionResult, StepResult } from '../../lib/api';
 import CustomNode from './CustomNode';
 import ConditionNode from './ConditionNode';
 import DelayNode from './DelayNode';
+import ForEachNode from './ForEachNode';
 import MockInputModal from './MockInputModal';
 
 const nodeTypes = {
   customNode: CustomNode,
   conditionNode: ConditionNode,
   delayNode: DelayNode,
+  forEachNode: ForEachNode,
 };
 
 let nodeIdCounter = 1;
@@ -92,7 +94,7 @@ export default function FlowCanvas() {
       if (!raw) return;
 
       const { nodeType, label } = JSON.parse(raw) as {
-        nodeType: 'trigger' | 'action' | 'condition' | 'delay';
+        nodeType: 'trigger' | 'action' | 'condition' | 'delay' | 'foreach';
         label: string;
       };
 
@@ -108,6 +110,7 @@ export default function FlowCanvas() {
       const reactFlowType =
         nodeType === 'condition' ? 'conditionNode'
         : nodeType === 'delay' ? 'delayNode'
+        : nodeType === 'foreach' ? 'forEachNode'
         : 'customNode';
 
       const newNode: Node = {
@@ -412,6 +415,7 @@ export default function FlowCanvas() {
               if (data?.nodeType === 'trigger') return '#7c3aed';
               if (data?.nodeType === 'condition') return '#d97706';
               if (data?.nodeType === 'delay') return '#0f766e';
+              if (data?.nodeType === 'foreach') return '#7e22ce';
               return '#0284c7';
             }}
             className="bg-zinc-900! border-zinc-700! rounded-lg!"

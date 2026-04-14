@@ -13,6 +13,7 @@ export enum NodeType {
   ACTION = 'action',
   CONDITION = 'condition',
   DELAY = 'delay',
+  FOR_EACH = 'foreach',
 }
 
 // Sub-type discriminator stored in node.data.kind
