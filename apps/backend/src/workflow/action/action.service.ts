@@ -44,7 +44,10 @@ export class ActionService {
     const response = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json', ...headers },
-      body: body !== undefined && method !== 'GET' ? JSON.stringify(body) : undefined,
+      body:
+        body !== undefined && method !== 'GET'
+          ? JSON.stringify(body)
+          : undefined,
     });
 
     let responseBody: unknown;

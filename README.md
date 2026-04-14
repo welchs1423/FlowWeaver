@@ -74,6 +74,11 @@ pnpm backend dev
 - **홈 페이지 업데이트**: 홈(`/`)에 "Monitoring Dashboard" 버튼 추가
 - **api.ts 타입 확장**: `StepResult`, `ExecutionWithFlow` 인터페이스 추가, `ExecutionRecord`에 `startedAt`/`finishedAt` 필드 추가
 - `pnpm build` 성공, 백엔드 단위 테스트 22개 전체 통과
+- **Condition(조건) 노드 추가**: 사이드바 "Control Flow" 섹션에 Condition 노드 템플릿 추가. 캔버스에 드래그하면 비교 대상 필드명·연산자(==, !=, >, <, >=, <=)·기준값을 인라인 설정할 수 있는 앰버색 노드가 생성됨. 하단에 초록(True)·빨강(False) 두 개의 소스 핸들을 제공해 각 브랜치로 엣지를 연결 가능
+- **Delay(지연) 노드 추가**: 사이드바에 Delay 노드 추가. 지연 시간(Amount)과 단위(초/분)를 설정하면 해당 시간만큼 워크플로우 실행을 일시 정지한 뒤 다음 노드로 진행. 티얼색으로 시각적으로 구분
+- **실행 엔진 제어 흐름 고도화 (백엔드)**: `NodeType`에 `condition`, `delay` 추가. `EdgeDto`에 `sourceHandle` 필드 추가. DAG 파서에 `edgesBySource` 맵 추가. 실행 엔진을 activation-count 모델로 전면 재설계 — Condition 노드는 조건 평가 결과에 따라 True 또는 False 핸들의 하위 노드만 활성화하고 나머지 브랜치는 자동 스킵, Delay 노드는 `setTimeout` 기반 비동기 대기 후 다음 노드를 실행
+- **api.ts 엣지 직렬화 개선**: `toApiEdges` 함수에서 `sourceHandle` 값을 포함해 백엔드로 전송, Condition 브랜치 라우팅 정보가 정확히 전달됨
+- `pnpm build` 성공, 백엔드 단위 테스트 26개 전체 통과 (Condition·Delay 신규 테스트 4개 포함)
 
 ### 2026-04-13
 

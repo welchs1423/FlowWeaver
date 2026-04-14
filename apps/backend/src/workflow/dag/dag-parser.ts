@@ -4,6 +4,7 @@ export interface DagParseResult {
   order: NodeDto[];
   adjacency: Map<string, string[]>;
   reverseAdjacency: Map<string, string[]>;
+  edgesBySource: Map<string, EdgeDto[]>;
 }
 
 // Performs Kahn's algorithm (BFS-based topological sort) on the given nodes and edges.
@@ -12,11 +13,13 @@ export function parseDag(nodes: NodeDto[], edges: EdgeDto[]): DagParseResult {
   const nodeMap = new Map<string, NodeDto>(nodes.map((n) => [n.id, n]));
   const adjacency = new Map<string, string[]>();
   const reverseAdjacency = new Map<string, string[]>();
+  const edgesBySource = new Map<string, EdgeDto[]>();
   const inDegree = new Map<string, number>();
 
   for (const node of nodes) {
     adjacency.set(node.id, []);
     reverseAdjacency.set(node.id, []);
+    edgesBySource.set(node.id, []);
     inDegree.set(node.id, 0);
   }
 
@@ -29,6 +32,7 @@ export function parseDag(nodes: NodeDto[], edges: EdgeDto[]): DagParseResult {
     }
     adjacency.get(edge.source)!.push(edge.target);
     reverseAdjacency.get(edge.target)!.push(edge.source);
+    edgesBySource.get(edge.source)!.push(edge);
     inDegree.set(edge.target, (inDegree.get(edge.target) ?? 0) + 1);
   }
 
@@ -52,5 +56,5 @@ export function parseDag(nodes: NodeDto[], edges: EdgeDto[]): DagParseResult {
     throw new Error('Cycle detected in workflow graph');
   }
 
-  return { order, adjacency, reverseAdjacency };
+  return { order, adjacency, reverseAdjacency, edgesBySource };
 }

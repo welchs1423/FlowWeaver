@@ -22,6 +22,33 @@ export interface ExecutionResult {
   failedAt?: string;
 }
 
+function evaluateCondition(
+  leftValue: unknown,
+  operator: string,
+  rightOperand: string,
+): boolean {
+  switch (operator) {
+    case '==':
+      return String(leftValue) === rightOperand;
+    case '!=':
+      return String(leftValue) !== rightOperand;
+    case '>':
+      return parseFloat(String(leftValue)) > parseFloat(rightOperand);
+    case '<':
+      return parseFloat(String(leftValue)) < parseFloat(rightOperand);
+    case '>=':
+      return parseFloat(String(leftValue)) >= parseFloat(rightOperand);
+    case '<=':
+      return parseFloat(String(leftValue)) <= parseFloat(rightOperand);
+    default:
+      return false;
+  }
+}
+
+function delayMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function executeWorkflow(
   parseResult: DagParseResult,
   triggerService: TriggerService,
@@ -41,8 +68,26 @@ export async function executeWorkflow(
 
   record(`Starting workflow execution — ${parseResult.order.length} node(s)`);
 
+  // Activation-count model: each node starts at 0.
+  // Root nodes (no upstream) get 1. After a node executes, it increments
+  // each downstream node's count — but condition nodes only increment the
+  // branch whose handle matches the evaluation result.
+  const activationCount = new Map<string, number>();
   for (const node of parseResult.order) {
-    // Merge output contexts from all upstream nodes into the input for this node
+    activationCount.set(node.id, 0);
+  }
+  for (const node of parseResult.order) {
+    if ((parseResult.reverseAdjacency.get(node.id) ?? []).length === 0) {
+      activationCount.set(node.id, 1);
+    }
+  }
+
+  for (const node of parseResult.order) {
+    if ((activationCount.get(node.id) ?? 0) === 0) {
+      record(`[SKIP]    id=${node.id} label="${node.label}" — branch not taken`);
+      continue;
+    }
+
     const upstreamIds = parseResult.reverseAdjacency.get(node.id) ?? [];
     const inputContext: Record<string, unknown> = {};
     for (const upstreamId of upstreamIds) {
@@ -56,6 +101,27 @@ export async function executeWorkflow(
       if (node.type === NodeType.TRIGGER) {
         record(`[TRIGGER] id=${node.id} label="${node.label}" — fired`);
         output = triggerService.fire(node, inputContext);
+      } else if (node.type === NodeType.CONDITION) {
+        const config = node.data?.config as Record<string, string> | undefined;
+        const leftOperand = config?.leftOperand ?? '';
+        const operator = config?.operator ?? '==';
+        const rightOperand = config?.rightOperand ?? '';
+        const leftValue = inputContext[leftOperand];
+        const result = evaluateCondition(leftValue, operator, rightOperand);
+        record(
+          `[CONDITION] id=${node.id} label="${node.label}" — ${leftOperand} ${operator} ${rightOperand} => ${result}`,
+        );
+        output = { ...inputContext, conditionResult: result, nodeId: node.id };
+      } else if (node.type === NodeType.DELAY) {
+        const config = node.data?.config as Record<string, string> | undefined;
+        const amount = parseInt(config?.delayAmount ?? '0', 10);
+        const unit = config?.delayUnit ?? 'seconds';
+        const ms = unit === 'minutes' ? amount * 60_000 : amount * 1_000;
+        record(
+          `[DELAY]   id=${node.id} label="${node.label}" — waiting ${amount} ${unit}`,
+        );
+        await delayMs(ms);
+        output = { ...inputContext, delayedMs: ms, nodeId: node.id };
       } else {
         record(`[ACTION]  id=${node.id} label="${node.label}" — executed`);
         output = await actionService.execute(node, inputContext);
@@ -88,9 +154,34 @@ export async function executeWorkflow(
 
     contextStore.set(node.id, output);
 
-    const downstream = parseResult.adjacency.get(node.id) ?? [];
-    if (downstream.length > 0) {
-      record(`  -> dispatching to: [${downstream.join(', ')}]`);
+    const outgoingEdges = parseResult.edgesBySource.get(node.id) ?? [];
+
+    if (node.type === NodeType.CONDITION) {
+      const condResult = (output.conditionResult as boolean);
+      const winHandle = condResult ? 'true' : 'false';
+      for (const edge of outgoingEdges) {
+        if (!edge.sourceHandle || edge.sourceHandle === winHandle) {
+          activationCount.set(
+            edge.target,
+            (activationCount.get(edge.target) ?? 0) + 1,
+          );
+        }
+      }
+      const downstream = outgoingEdges.map((e) => e.target);
+      if (downstream.length > 0) {
+        record(`  -> dispatching to: [${winHandle} branch]`);
+      }
+    } else {
+      for (const edge of outgoingEdges) {
+        activationCount.set(
+          edge.target,
+          (activationCount.get(edge.target) ?? 0) + 1,
+        );
+      }
+      const downstream = outgoingEdges.map((e) => e.target);
+      if (downstream.length > 0) {
+        record(`  -> dispatching to: [${downstream.join(', ')}]`);
+      }
     }
 
     executedNodes.push(node.id);

@@ -16,8 +16,14 @@ import { toDag } from '../../lib/dagUtils';
 import { saveFlow, updateFlow, executeFlow } from '../../lib/api';
 import type { ExecutionResult } from '../../lib/api';
 import CustomNode from './CustomNode';
+import ConditionNode from './ConditionNode';
+import DelayNode from './DelayNode';
 
-const nodeTypes = { customNode: CustomNode };
+const nodeTypes = {
+  customNode: CustomNode,
+  conditionNode: ConditionNode,
+  delayNode: DelayNode,
+};
 
 let nodeIdCounter = 1;
 function generateId(): string {
@@ -52,7 +58,7 @@ export default function FlowCanvas() {
       if (!raw) return;
 
       const { nodeType, label } = JSON.parse(raw) as {
-        nodeType: 'trigger' | 'action';
+        nodeType: 'trigger' | 'action' | 'condition' | 'delay';
         label: string;
       };
 
@@ -65,9 +71,14 @@ export default function FlowCanvas() {
         y: event.clientY - bounds.top - 40,
       };
 
+      const reactFlowType =
+        nodeType === 'condition' ? 'conditionNode'
+        : nodeType === 'delay' ? 'delayNode'
+        : 'customNode';
+
       const newNode: Node = {
         id: generateId(),
-        type: 'customNode',
+        type: reactFlowType,
         position,
         data: { label, nodeType, config: {} },
       };
@@ -236,7 +247,10 @@ export default function FlowCanvas() {
           <MiniMap
             nodeColor={(node) => {
               const data = node.data as { nodeType?: string };
-              return data?.nodeType === 'trigger' ? '#7c3aed' : '#0284c7';
+              if (data?.nodeType === 'trigger') return '#7c3aed';
+              if (data?.nodeType === 'condition') return '#d97706';
+              if (data?.nodeType === 'delay') return '#0f766e';
+              return '#0284c7';
             }}
             className="!bg-zinc-900 !border-zinc-700 !rounded-lg"
           />

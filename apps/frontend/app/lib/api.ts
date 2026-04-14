@@ -79,6 +79,7 @@ function toApiEdges(edges: Edge[]) {
     id: e.id,
     source: e.source,
     target: e.target,
+    ...(e.sourceHandle ? { sourceHandle: e.sourceHandle } : {}),
   }));
 }
 

@@ -11,6 +11,8 @@ import { Type } from 'class-transformer';
 export enum NodeType {
   TRIGGER = 'trigger',
   ACTION = 'action',
+  CONDITION = 'condition',
+  DELAY = 'delay',
 }
 
 // Sub-type discriminator stored in node.data.kind
@@ -45,6 +47,10 @@ export class EdgeDto {
 
   @IsString()
   target: string;
+
+  @IsOptional()
+  @IsString()
+  sourceHandle?: string;
 }
 
 export class WorkflowDto {

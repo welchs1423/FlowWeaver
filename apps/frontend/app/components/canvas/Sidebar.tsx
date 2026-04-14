@@ -3,7 +3,7 @@
 import type { DragEvent } from 'react';
 
 interface NodeTemplate {
-  nodeType: 'trigger' | 'action';
+  nodeType: 'trigger' | 'action' | 'condition' | 'delay';
   label: string;
   description: string;
 }
@@ -21,9 +21,19 @@ const ACTION_NODES: NodeTemplate[] = [
   { nodeType: 'action', label: 'Filter', description: 'Filters data by condition' },
 ];
 
-function NodeCard({ template }: { template: NodeTemplate }) {
-  const isTrigger = template.nodeType === 'trigger';
+const CONTROL_NODES: NodeTemplate[] = [
+  { nodeType: 'condition', label: 'Condition', description: 'Branches flow on True / False' },
+  { nodeType: 'delay', label: 'Delay', description: 'Pauses execution for a set time' },
+];
 
+const nodeCardStyles: Record<string, string> = {
+  trigger: 'border-violet-700 bg-violet-950 hover:bg-violet-900',
+  action: 'border-sky-700 bg-sky-950 hover:bg-sky-900',
+  condition: 'border-amber-700 bg-amber-950 hover:bg-amber-900',
+  delay: 'border-teal-700 bg-teal-950 hover:bg-teal-900',
+};
+
+function NodeCard({ template }: { template: NodeTemplate }) {
   function onDragStart(event: DragEvent<HTMLDivElement>) {
     event.dataTransfer.setData(
       'application/reactflow',
@@ -32,15 +42,13 @@ function NodeCard({ template }: { template: NodeTemplate }) {
     event.dataTransfer.effectAllowed = 'move';
   }
 
+  const style = nodeCardStyles[template.nodeType] ?? nodeCardStyles.action;
+
   return (
     <div
       draggable
       onDragStart={onDragStart}
-      className={`cursor-grab active:cursor-grabbing rounded-md border px-3 py-2 select-none transition-colors ${
-        isTrigger
-          ? 'border-violet-700 bg-violet-950 hover:bg-violet-900'
-          : 'border-sky-700 bg-sky-950 hover:bg-sky-900'
-      }`}
+      className={`cursor-grab active:cursor-grabbing rounded-md border px-3 py-2 select-none transition-colors ${style}`}
     >
       <p className="text-sm font-medium text-white">{template.label}</p>
       <p className="text-[11px] text-zinc-400 mt-0.5">{template.description}</p>
@@ -75,6 +83,17 @@ export default function Sidebar() {
           </h3>
           <div className="flex flex-col gap-1.5">
             {ACTION_NODES.map((t) => (
+              <NodeCard key={t.label} template={t} />
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <h3 className="text-[11px] font-semibold uppercase tracking-widest text-amber-400 mb-2 px-1">
+            Control Flow
+          </h3>
+          <div className="flex flex-col gap-1.5">
+            {CONTROL_NODES.map((t) => (
               <NodeCard key={t.label} template={t} />
             ))}
           </div>
