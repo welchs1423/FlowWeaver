@@ -7,15 +7,18 @@ import {
   fetchExecutions,
   fetchFlows,
   deleteFlow,
+  fetchTemplates,
+  useTemplate,
   type ExecutionWithFlow,
   type FlowRecord,
+  type TemplateRecord,
 } from '../lib/api';
 import { useAuthStore } from '../store/authStore';
 import AppHeader from '../components/common/AppHeader';
 
 const POLL_INTERVAL_MS = 5000;
 
-type Tab = 'flows' | 'executions';
+type Tab = 'flows' | 'executions' | 'templates';
 
 function StatusBadge({ status }: { status: string }) {
   if (status === 'success') {
@@ -65,10 +68,12 @@ export default function DashboardPage() {
   const [tab, setTab] = useState<Tab>('flows');
   const [flows, setFlows] = useState<FlowRecord[]>([]);
   const [executions, setExecutions] = useState<ExecutionWithFlow[]>([]);
+  const [templates, setTemplates] = useState<TemplateRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [usingTemplateId, setUsingTemplateId] = useState<string | null>(null);
 
   useEffect(() => {
     init();
@@ -76,12 +81,14 @@ export default function DashboardPage() {
 
   const loadAll = useCallback(async () => {
     try {
-      const [flowsData, execData] = await Promise.all([
+      const [flowsData, execData, tplData] = await Promise.all([
         fetchFlows(),
         fetchExecutions(),
+        fetchTemplates(),
       ]);
       setFlows(flowsData);
       setExecutions(execData);
+      setTemplates(tplData);
       setLastUpdated(new Date());
       setError(null);
     } catch (err) {
@@ -107,6 +114,18 @@ export default function DashboardPage() {
       setError(err instanceof Error ? err.message : '삭제 실패');
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function handleUseTemplate(id: string) {
+    setUsingTemplateId(id);
+    setError(null);
+    try {
+      const flow = await useTemplate(id);
+      router.push(`/canvas?flowId=${flow.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '템플릿 적용 실패');
+      setUsingTemplateId(null);
     }
   }
 
@@ -140,6 +159,12 @@ export default function DashboardPage() {
               onClick={() => setTab('executions')}
             >
               실행 이력 ({total})
+            </TabButton>
+            <TabButton
+              active={tab === 'templates'}
+              onClick={() => setTab('templates')}
+            >
+              템플릿 ({templates.length})
             </TabButton>
           </div>
 
@@ -191,6 +216,14 @@ export default function DashboardPage() {
             successCount={successCount}
             failedCount={failedCount}
             runningCount={runningCount}
+          />
+        )}
+
+        {!loading && tab === 'templates' && (
+          <TemplatesTab
+            templates={templates}
+            usingTemplateId={usingTemplateId}
+            onUse={handleUseTemplate}
           />
         )}
       </main>
@@ -364,6 +397,65 @@ function ExecutionsTab({
         </div>
       )}
     </>
+  );
+}
+
+const CATEGORY_COLORS: Record<string, string> = {
+  스케줄: 'bg-sky-500/10 text-sky-400 border-sky-800/40',
+  알림: 'bg-violet-500/10 text-violet-400 border-violet-800/40',
+  '데이터 처리': 'bg-emerald-500/10 text-emerald-400 border-emerald-800/40',
+};
+
+function TemplatesTab({
+  templates,
+  usingTemplateId,
+  onUse,
+}: {
+  templates: TemplateRecord[];
+  usingTemplateId: string | null;
+  onUse: (id: string) => void;
+}) {
+  if (templates.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-16 text-zinc-500 text-sm">
+        불러올 템플릿이 없습니다.
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {templates.map((tpl) => {
+        const categoryStyle =
+          CATEGORY_COLORS[tpl.category] ??
+          'bg-zinc-700/30 text-zinc-400 border-zinc-700';
+        return (
+          <div
+            key={tpl.id}
+            className="rounded-lg border border-zinc-800 bg-zinc-900 p-4 flex flex-col gap-3"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="font-medium text-zinc-100 leading-tight">{tpl.name}</h3>
+              <span
+                className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium ${categoryStyle}`}
+              >
+                {tpl.category}
+              </span>
+            </div>
+            <p className="text-xs text-zinc-500 leading-relaxed flex-1">
+              {tpl.description}
+            </p>
+            <button
+              onClick={() => onUse(tpl.id)}
+              disabled={usingTemplateId === tpl.id}
+              className="w-full rounded-md bg-violet-600/20 px-3 py-1.5 text-xs font-medium text-violet-400 hover:bg-violet-600/30 transition-colors disabled:opacity-50"
+            >
+              {usingTemplateId === tpl.id ? '생성 중…' : '사용하기'}
+            </button>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 

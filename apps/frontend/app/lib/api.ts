@@ -324,3 +324,57 @@ export async function rollbackFlowVersion(
   }
   return res.json() as Promise<FlowRecord>;
 }
+
+// ---- Import / Export ----
+
+export async function importFlow(
+  name: string,
+  nodes: Node[],
+  edges: Edge[],
+): Promise<FlowRecord> {
+  const res = await fetch(`${BASE_URL}/flows/import`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      name,
+      nodes: toApiNodes(nodes),
+      edges: toApiEdges(edges),
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Import failed (${res.status}): ${text}`);
+  }
+  return res.json() as Promise<FlowRecord>;
+}
+
+// ---- Templates ----
+
+export interface TemplateRecord {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  createdAt: string;
+}
+
+export async function fetchTemplates(): Promise<TemplateRecord[]> {
+  const res = await fetch(`${BASE_URL}/templates`, {
+    headers: authHeaders(),
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error(`Failed to fetch templates (${res.status})`);
+  return res.json() as Promise<TemplateRecord[]>;
+}
+
+export async function useTemplate(id: string): Promise<FlowRecord> {
+  const res = await fetch(`${BASE_URL}/templates/${id}/use`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Use template failed (${res.status}): ${text}`);
+  }
+  return res.json() as Promise<FlowRecord>;
+}

@@ -52,6 +52,16 @@ pnpm backend dev
 
 ## 변경 이력
 
+### 2026-04-15
+
+- **템플릿 갤러리 추가**: Prisma 스키마에 `Template` 모델 추가. 서버 최초 기동 시 `TemplatesService.onModuleInit()`에서 4개의 시드 템플릿("매일 아침 날씨 알림", "웹훅 받아서 디스코드 전송", "조건부 Slack 알림", "배열 데이터 순차 처리") 자동 삽입
+- **템플릿 API**: `GET /templates`(목록 조회), `POST /templates/:id/use`(템플릿에서 새 플로우 생성) 엔드포인트 추가. JwtAuthGuard로 보호
+- **대시보드 Templates 탭**: 대시보드에 "템플릿" 탭 신설. 템플릿을 카테고리 배지(스케줄·알림·데이터 처리)와 함께 카드로 표시. "사용하기" 버튼 클릭 시 템플릿 DAG를 복사하여 새 플로우를 생성하고 캔버스로 즉시 이동
+- **Export 기능**: 캔버스 툴바에 "Export" 버튼 추가. 현재 캔버스의 노드·엣지를 DAG JSON으로 직렬화하여 `.json` 파일로 다운로드
+- **Import 기능**: 캔버스 툴바에 "Import" 버튼 추가. `.json` 파일 선택 시 `nodes`·`edges` 필드 유효성을 검증한 후 `POST /flows/import` 백엔드 엔드포인트로 전송하여 새 플로우를 생성하고 캔버스에 즉시 로드
+- **백엔드 Import 유효성 검증**: `POST /flows/import` 엔드포인트는 기존 `SaveFlowDto`의 class-validator 데코레이터(`@IsString`, `@IsArray`, `@ValidateNested`)를 통해 업로드된 DAG 구조를 스키마 수준에서 검증
+- `pnpm build` 성공, 백엔드 단위 테스트 31개 전체 통과
+
 ### 2026-04-14
 
 - **JWT 인증 시스템 (Email/Password)**: 백엔드에 `POST /auth/register`, `POST /auth/login` 엔드포인트 추가. bcryptjs로 비밀번호 해시 처리, `@nestjs/jwt` + `passport-jwt`로 토큰 발급 및 검증

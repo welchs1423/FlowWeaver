@@ -24,6 +24,7 @@ import {
   fetchFlow,
   fetchFlowVersions,
   rollbackFlowVersion,
+  importFlow,
   type FlowVersionRecord,
 } from '../../lib/api';
 import type { ExecutionResult, StepResult } from '../../lib/api';
@@ -53,6 +54,7 @@ export default function FlowCanvas() {
     useFlowStore();
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const [saveStatus, setSaveStatus] = useState<ActionStatus>('idle');
   const [runStatus, setRunStatus] = useState<ActionStatus>('idle');
@@ -69,8 +71,6 @@ export default function FlowCanvas() {
   const [versions, setVersions] = useState<FlowVersionRecord[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [rollbackStatus, setRollbackStatus] = useState<ActionStatus>('idle');
-
-  const dag = useMemo(() => toDag(nodes, edges), [nodes, edges]);
 
   // Load flow from URL param on mount
   useEffect(() => {
@@ -328,6 +328,67 @@ export default function FlowCanvas() {
     [savedFlowId, reset, addNode, setSavedFlowId]
   );
 
+  const handleExport = useCallback(() => {
+    const dag = toDag(nodes, edges);
+    const blob = new Blob(
+      [JSON.stringify({ name: `Flow Export ${new Date().toLocaleString()}`, ...dag }, null, 2)],
+      { type: 'application/json' },
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `flow-export-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [nodes, edges]);
+
+  const [importStatus, setImportStatus] = useState<ActionStatus>('idle');
+
+  const handleImportFile = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      e.target.value = '';
+
+      setImportStatus('loading');
+      setErrorMsg('');
+      try {
+        const text = await file.text();
+        const json = JSON.parse(text) as {
+          name?: string;
+          nodes?: unknown[];
+          edges?: unknown[];
+        };
+        if (!Array.isArray(json.nodes) || !Array.isArray(json.edges)) {
+          throw new Error('유효하지 않은 플로우 파일입니다. nodes와 edges 필드가 필요합니다.');
+        }
+        const { nodes: rfNodes, edges: rfEdges } = fromDag(
+          JSON.stringify({ nodes: json.nodes, edges: json.edges }),
+        );
+        const flowName = json.name ?? `Imported Flow ${new Date().toLocaleString()}`;
+        const record = await importFlow(flowName, rfNodes, rfEdges);
+        reset();
+        rfNodes.forEach((n) => addNode(n));
+        useFlowStore.setState({ edges: rfEdges });
+        setSavedFlowId(record.id);
+        setFlowStatus(record.status as 'DRAFT' | 'PUBLISHED');
+        setImportStatus('success');
+        setTimeout(() => setImportStatus('idle'), 2000);
+      } catch (err) {
+        setErrorMsg(err instanceof Error ? err.message : String(err));
+        setImportStatus('error');
+        setTimeout(() => setImportStatus('idle'), 3000);
+      }
+    },
+    [reset, addNode, setSavedFlowId],
+  );
+
+  const importBtnLabel =
+    importStatus === 'loading' ? 'Importing…'
+    : importStatus === 'success' ? 'Imported'
+    : importStatus === 'error' ? 'Error'
+    : 'Import';
+
   const saveBtnLabel =
     saveStatus === 'loading' ? 'Saving…'
     : saveStatus === 'success' ? 'Saved'
@@ -400,6 +461,31 @@ export default function FlowCanvas() {
         )}
 
         <div className="ml-auto flex items-center gap-2">
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={handleImportFile}
+          />
+          <button
+            onClick={handleExport}
+            disabled={nodes.length === 0}
+            className="px-3 py-1 rounded text-xs font-medium bg-zinc-700 hover:bg-zinc-600 text-zinc-300 transition-colors disabled:opacity-40"
+          >
+            Export
+          </button>
+          <button
+            onClick={() => importInputRef.current?.click()}
+            disabled={importStatus === 'loading'}
+            className={`px-3 py-1 rounded text-xs font-medium transition-colors
+              ${importStatus === 'success' ? 'bg-emerald-700 text-white' : ''}
+              ${importStatus === 'error' ? 'bg-red-700 text-white' : ''}
+              ${importStatus === 'idle' || importStatus === 'loading' ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300 disabled:opacity-50' : ''}
+            `}
+          >
+            {importBtnLabel}
+          </button>
           {savedFlowId && (
             <button
               onClick={handleOpenVersionPanel}

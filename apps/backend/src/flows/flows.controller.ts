@@ -25,6 +25,12 @@ export class FlowsController {
     return this.flowsService.create(dto, user.id);
   }
 
+  @Post('import')
+  @HttpCode(HttpStatus.CREATED)
+  importFlow(@Body() dto: SaveFlowDto, @CurrentUser() user: AuthUser) {
+    return this.flowsService.create(dto, user.id);
+  }
+
   @Get()
   findAll(@CurrentUser() user: AuthUser) {
     return this.flowsService.findAll(user.id);

@@ -58,3 +58,12 @@ model FlowVersion {
   dag       String
   createdAt DateTime @default(now())
 }
+
+model Template {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  category    String
+  dag         String
+  createdAt   DateTime @default(now())
+}
