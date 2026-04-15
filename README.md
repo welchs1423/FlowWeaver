@@ -61,6 +61,11 @@ pnpm backend dev
 - **Import 기능**: 캔버스 툴바에 "Import" 버튼 추가. `.json` 파일 선택 시 `nodes`·`edges` 필드 유효성을 검증한 후 `POST /flows/import` 백엔드 엔드포인트로 전송하여 새 플로우를 생성하고 캔버스에 즉시 로드
 - **백엔드 Import 유효성 검증**: `POST /flows/import` 엔드포인트는 기존 `SaveFlowDto`의 class-validator 데코레이터(`@IsString`, `@IsArray`, `@ValidateNested`)를 통해 업로드된 DAG 구조를 스키마 수준에서 검증
 - `pnpm build` 성공, 백엔드 단위 테스트 31개 전체 통과
+- **Docker 컨테이너화**: `apps/backend/Dockerfile`, `apps/frontend/Dockerfile` 추가. 각각 multi-stage 빌드로 구성하여 프로덕션 이미지 크기 최소화. 백엔드는 시작 시 `prisma db push`로 스키마 자동 반영. 프론트엔드는 Next.js standalone 출력 활용
+- **Docker Compose**: 루트 `docker-compose.yml` 추가. `docker compose up` 한 번으로 프론트엔드(3000), 백엔드(3001) 동시 기동. SQLite 데이터는 `db_data` named volume에 영속화. 환경변수(`JWT_SECRET`, `SECRET_ENCRYPTION_KEY`, `DATABASE_URL`)를 서비스별 `environment` 블록으로 분리
+- **`.dockerignore`**: `node_modules`, `.next`, `dist`, `.env`, `*.db` 등 불필요한 파일 제외하여 빌드 컨텍스트 축소
+- **GitHub Actions CI (`/.github/workflows/ci.yml`)**: `main` 브랜치 push 및 PR 시 자동 실행. pnpm 스토어 캐시 → 의존성 설치 → Prisma 클라이언트 생성 → 린트 → 테스트 → 백엔드 빌드 → 프론트엔드 빌드 순으로 파이프라인 구성
+- **`next.config.ts` standalone 모드 활성화**: Next.js `output: 'standalone'` 설정 추가. 프론트엔드 Docker 이미지가 자체 포함 서버 번들을 사용하도록 변경
 
 ### 2026-04-14
 
