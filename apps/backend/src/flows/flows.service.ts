@@ -9,9 +9,12 @@ import { FlowSchedulerService } from '../scheduler/flow-scheduler.service';
 import { SecretsService } from '../secrets/secrets.service';
 import { RedisService } from '../redis/redis.service';
 import { ExecutionGateway } from '../execution-gateway/execution.gateway';
+import { UsersService } from '../users/users.service';
 import { SaveFlowDto, UpdateFlowDto } from './dto/flow.dto';
 import type { ExecutionResult } from '../workflow/dag/execution-engine';
 import type { NodeDto } from '../workflow/dto/workflow.dto';
+
+const FREE_PLAN_MONTHLY_LIMIT = 100;
 
 @Injectable()
 export class FlowsService {
@@ -22,6 +25,7 @@ export class FlowsService {
     private readonly secretsService: SecretsService,
     private readonly redis: RedisService,
     private readonly gateway: ExecutionGateway,
+    private readonly usersService: UsersService,
   ) {}
 
   async create(dto: SaveFlowDto, userId: string) {
@@ -141,6 +145,21 @@ export class FlowsService {
   }
 
   async execute(id: string, userId: string) {
+    const user = await this.usersService.findById(userId);
+    if (user && user.subscriptionPlan === 'FREE') {
+      const now = new Date();
+      const resetAt = user.executionCountResetAt;
+      const isSameMonth =
+        resetAt.getFullYear() === now.getFullYear() &&
+        resetAt.getMonth() === now.getMonth();
+      const currentCount = isSameMonth ? user.executionCount : 0;
+      if (currentCount >= FREE_PLAN_MONTHLY_LIMIT) {
+        throw new ForbiddenException(
+          'FREE 플랜의 월 실행 한도(100회)를 초과했습니다. PRO 플랜으로 업그레이드하세요.',
+        );
+      }
+    }
+
     const flow = await this.findOne(id, userId);
 
     let dagString = flow.dag;
@@ -217,6 +236,8 @@ export class FlowsService {
     });
 
     this.gateway.emitExecutionFinished(id, execution.id, status);
+
+    await this.usersService.incrementExecutionCount(userId);
 
     return { execution: updated, result };
   }

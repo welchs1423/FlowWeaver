@@ -13,6 +13,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
 import { SecretsModule } from './secrets/secrets.module';
 import { TemplatesModule } from './templates/templates.module';
 import { ExecutionGatewayModule } from './execution-gateway/execution-gateway.module';
+import { SubscriptionModule } from './subscription/subscription.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { ExecutionGatewayModule } from './execution-gateway/execution-gateway.mo
     WebhooksModule,
     SecretsModule,
     TemplatesModule,
+    SubscriptionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

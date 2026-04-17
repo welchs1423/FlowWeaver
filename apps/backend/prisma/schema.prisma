@@ -8,12 +8,15 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  createdAt    DateTime @default(now())
-  flows        Flow[]
-  secrets      Secret[]
+  id                     String    @id @default(cuid())
+  email                  String    @unique
+  passwordHash           String
+  subscriptionPlan       String    @default("FREE")
+  executionCount         Int       @default(0)
+  executionCountResetAt  DateTime  @default(now())
+  createdAt              DateTime  @default(now())
+  flows                  Flow[]
+  secrets                Secret[]
 }
 
 model Flow {

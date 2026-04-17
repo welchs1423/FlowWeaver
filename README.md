@@ -60,6 +60,11 @@ pnpm backend dev
 - **Redis 캐싱 도입**: `ioredis` 기반 `RedisService` 추가(`src/redis/`). Redis 미연결 시 경고 로그만 출력하고 캐싱을 무음으로 비활성화하는 graceful fallback 구현. `TemplatesService.findAll()`에 5분 TTL 캐싱 적용 — Redis 연결 시 `GET /templates` 응답이 DB 조회 없이 즉시 반환됨. `FlowsService`에서 `PUBLISHED` 상태 플로우의 DAG JSON을 2분 TTL로 캐싱; `update` / `unpublish` / `rollback` 호출 시 자동 무효화
 - **Docker Compose Redis 서비스 추가**: `docker-compose.yml`에 `redis:7-alpine` 서비스 추가. 헬스체크 통과 후 백엔드가 기동되도록 `depends_on` 설정. 백엔드 환경변수에 `REDIS_URL: "redis://redis:6379"` 주입
 - `pnpm build` 성공, 백엔드 단위 테스트 31개 전체 통과
+- **SaaS 랜딩 페이지 구축**: `apps/frontend/app/page.tsx`를 전면 개편. 고정 네비게이션 바(로그인 / 대시보드로 이동 버튼), 히어로 섹션, 시각적 캔버스 미리보기, 주요 기능(시각적 플로우 빌더·템플릿 갤러리·실시간 모니터링) 카드, FREE·PRO 요금제 비교표, 푸터로 구성된 단일 페이지 랜딩 구현
+- **구독 요금제 DB 모델 추가**: Prisma `User` 모델에 `subscriptionPlan String @default("FREE")`, `executionCount Int @default(0)`, `executionCountResetAt DateTime @default(now())` 필드 추가. `prisma db push` 및 `prisma generate`로 DB 및 클라이언트 반영
+- **월별 실행 한도 제어**: `FlowsService.execute()` 호출 시 유저의 플랜과 이번 달 실행 횟수를 확인. `FREE` 플랜이 월 100회 초과 시 `ForbiddenException` 발생. 실행 성공 후 `UsersService.incrementExecutionCount()`로 카운트 자동 증가. 매월 초 최초 실행 시 카운트 자동 리셋
+- **Stripe 결제 연동 뼈대 구현**: `stripe@22` 패키지 설치. `SubscriptionModule` 신설(`src/subscription/`). `POST /subscription/checkout`(JWT 인증 필요) — Stripe Checkout Session 생성 후 결제 URL 반환. `POST /subscription/webhook` — Stripe 웹훅 수신 후 `checkout.session.completed` 이벤트 시 유저 플랜을 `PRO`로 업그레이드. 실제 키 대신 `STRIPE_SECRET_KEY`, `STRIPE_PRO_PRICE_ID`, `STRIPE_WEBHOOK_SECRET` 환경변수 사용
+- **NestJS rawBody 활성화**: `NestFactory.create(AppModule, { rawBody: true })` 설정 추가. Stripe 웹훅 서명 검증에 필요한 원본 바디 접근 가능
 
 ### 2026-04-15
 
