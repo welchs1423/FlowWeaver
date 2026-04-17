@@ -1,4 +1,11 @@
-import { Controller, Post, Param, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Param,
+  Body,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { WebhooksService } from './webhooks.service';
 
 @Controller('webhooks')

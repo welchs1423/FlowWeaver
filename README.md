@@ -2,6 +2,35 @@
 
 Next.js와 Nest.js로 구축된 강력한 시각적 워크플로우 빌더. > 직관적인 UI에서 설계한 DAG 파이프라인을 엔터프라이즈급 백엔드 엔진에서 실행합니다.
 
+---
+
+### 🎉 v1.0.0 릴리즈 (2026-04-17)
+
+#### 핵심 기능
+
+- **시각적 DAG 캔버스**: React Flow 기반 드래그앤드롭 워크플로우 에디터. Trigger·Action·Condition·Delay·ForEach 노드를 조합해 복잡한 실행 흐름을 시각적으로 설계 가능
+- **DAG 실행 엔진**: NestJS 백엔드에서 토폴로지 정렬 기반 비동기 실행. Condition 브랜치 라우팅, Delay 대기, ForEach 반복, 노드별 자동 재시도(Retry) 지원
+- **WebSocket 실시간 모니터링**: `socket.io` 기반 실행 이벤트 스트리밍. 노드 실행 중·성공·실패 상태를 캔버스에서 실시간으로 시각화
+- **테스트 실행(Dry Run)**: DB 이력 없이 Mock Input으로 플로우를 즉시 디버그. 노드별 Input/Output 패널 제공
+- **템플릿 갤러리**: 시드 템플릿 4종 내장. 원클릭으로 캔버스에 DAG 복사 및 바로 편집 가능
+- **Export / Import**: DAG를 JSON 파일로 내보내거나 불러와 팀 간 워크플로우 공유 가능
+- **배포 및 스케줄링**: 플로우 Publish 시 Cron 잡 자동 등록. Webhook 트리거로 외부 이벤트 수신 가능
+- **버전 관리**: Publish마다 DAG 스냅샷 자동 저장. 이전 버전으로 즉시 롤백 가능
+- **시크릿 금고**: AES-256-CBC 암호화 자격 증명 관리. 캔버스 Action 노드에서 드롭다운으로 시크릿 선택 및 실행 시 자동 복호화 주입
+- **JWT 인증 및 권한 분리**: 이메일/비밀번호 기반 회원가입·로그인. 유저별 워크플로우·실행 이력 완전 격리
+- **SaaS 구독 결제**: FREE/PRO 요금제 구조. Stripe Checkout Session 생성 및 웹훅 기반 플랜 자동 업그레이드. FREE 플랜 월 100회 실행 제한
+- **Redis 캐싱**: 템플릿 목록(5분 TTL), 게시된 플로우 DAG(2분 TTL) 캐싱. Redis 미연결 시 graceful fallback으로 서비스 중단 없음
+
+#### 아키텍처
+
+| 레이어 | 기술 |
+|--------|------|
+| 프론트엔드 | Next.js 16 (App Router), Tailwind CSS 4, React Flow, Zustand, socket.io-client |
+| 백엔드 | NestJS 11, Prisma 7 (SQLite), Redis (ioredis), JWT, Stripe, @nestjs/schedule |
+| 인프라 | Docker Compose, GitHub Actions CI/CD, pnpm workspaces 모노레포 |
+
+---
+
 ## 기술 스택
 
 | 레이어     | 기술                               |

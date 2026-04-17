@@ -72,7 +72,12 @@ export class FlowSchedulerService implements OnModuleInit {
         execStatus = result.failedAt ? 'failed' : 'success';
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        result = { executedNodes: [], log: [message], contextMap: {}, steps: [] };
+        result = {
+          executedNodes: [],
+          log: [message],
+          contextMap: {},
+          steps: [],
+        };
         execStatus = 'failed';
       }
 

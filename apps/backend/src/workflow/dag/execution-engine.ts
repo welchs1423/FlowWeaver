@@ -102,7 +102,10 @@ async function executeWithRetry(
       lastError = err instanceof Error ? err : new Error(String(err));
     }
   }
-  throw lastError ?? new Error(`Action node ${node.id} failed after ${maxRetries} retries`);
+  throw (
+    lastError ??
+    new Error(`Action node ${node.id} failed after ${maxRetries} retries`)
+  );
 }
 
 interface ForEachBodyResult {
@@ -130,7 +133,10 @@ async function executeForEachBody(
   }
   for (const edge of parseResult.edgesBySource.get(forEachNode.id) ?? []) {
     if (bodyNodeIds.has(edge.target)) {
-      localActivation.set(edge.target, (localActivation.get(edge.target) ?? 0) + 1);
+      localActivation.set(
+        edge.target,
+        (localActivation.get(edge.target) ?? 0) + 1,
+      );
     }
   }
 
@@ -167,7 +173,11 @@ async function executeForEachBody(
         const leftOperand = config?.leftOperand ?? '';
         const operator = config?.operator ?? '==';
         const rightOperand = config?.rightOperand ?? '';
-        const result = evaluateCondition(inputCtx[leftOperand], operator, rightOperand);
+        const result = evaluateCondition(
+          inputCtx[leftOperand],
+          operator,
+          rightOperand,
+        );
         recordFn(
           `[CONDITION] id=${node.id} iter=${iterationIndex} — ${leftOperand} ${operator} ${rightOperand} => ${result}`,
         );
@@ -190,7 +200,11 @@ async function executeForEachBody(
         nodeOutput = { ...inputCtx, delayedMs: ms, nodeId: node.id };
       } else {
         const retryResult = await executeWithRetry(
-          node, inputCtx, actionService, recordFn, isDryRun,
+          node,
+          inputCtx,
+          actionService,
+          recordFn,
+          isDryRun,
         );
         nodeOutput = retryResult.output;
         retryCount = retryResult.retryCount;
@@ -238,19 +252,27 @@ async function executeForEachBody(
 
     const outgoing = parseResult.edgesBySource.get(node.id) ?? [];
     if (node.type === NodeType.CONDITION) {
-      const winHandle = (nodeOutput.conditionResult as boolean) ? 'true' : 'false';
+      const winHandle = (nodeOutput.conditionResult as boolean)
+        ? 'true'
+        : 'false';
       for (const edge of outgoing) {
         if (
           bodyNodeIds.has(edge.target) &&
           (!edge.sourceHandle || edge.sourceHandle === winHandle)
         ) {
-          localActivation.set(edge.target, (localActivation.get(edge.target) ?? 0) + 1);
+          localActivation.set(
+            edge.target,
+            (localActivation.get(edge.target) ?? 0) + 1,
+          );
         }
       }
     } else {
       for (const edge of outgoing) {
         if (bodyNodeIds.has(edge.target)) {
-          localActivation.set(edge.target, (localActivation.get(edge.target) ?? 0) + 1);
+          localActivation.set(
+            edge.target,
+            (localActivation.get(edge.target) ?? 0) + 1,
+          );
         }
       }
     }
@@ -294,7 +316,9 @@ export async function debugExecuteWorkflow(
     if (consumedByForEach.has(node.id)) continue;
 
     if ((activationCount.get(node.id) ?? 0) === 0) {
-      record(`[SKIP]    id=${node.id} label="${node.label}" — branch not taken`);
+      record(
+        `[SKIP]    id=${node.id} label="${node.label}" — branch not taken`,
+      );
       continue;
     }
 
@@ -307,25 +331,26 @@ export async function debugExecuteWorkflow(
       Object.assign(inputContext, mockInput);
     }
 
-    console.log(
-      `[DEBUG] [INPUT]  node=${node.id} label="${node.label}":`,
-      JSON.stringify(inputContext),
-    );
-
     const stepStartedAt = new Date().toISOString();
     let output: Record<string, unknown>;
     let retryCount = 0;
 
     try {
       if (node.type === NodeType.TRIGGER) {
-        record(`[TRIGGER] id=${node.id} label="${node.label}" — dry-run with mock input`);
+        record(
+          `[TRIGGER] id=${node.id} label="${node.label}" — dry-run with mock input`,
+        );
         output = { ...inputContext, nodeId: node.id };
       } else if (node.type === NodeType.CONDITION) {
         const config = node.data?.config as Record<string, string> | undefined;
         const leftOperand = config?.leftOperand ?? '';
         const operator = config?.operator ?? '==';
         const rightOperand = config?.rightOperand ?? '';
-        const result = evaluateCondition(inputContext[leftOperand], operator, rightOperand);
+        const result = evaluateCondition(
+          inputContext[leftOperand],
+          operator,
+          rightOperand,
+        );
         record(
           `[CONDITION] id=${node.id} label="${node.label}" — ${leftOperand} ${operator} ${rightOperand} => ${result}`,
         );
@@ -343,7 +368,9 @@ export async function debugExecuteWorkflow(
         const config = node.data?.config as Record<string, string> | undefined;
         const arrayField = config?.arrayField ?? 'items';
         const rawArray = inputContext[arrayField];
-        const itemArray: unknown[] = Array.isArray(rawArray) ? (rawArray as unknown[]) : [];
+        const itemArray: unknown[] = Array.isArray(rawArray)
+          ? (rawArray as unknown[])
+          : [];
 
         record(
           `[FOR_EACH] id=${node.id} label="${node.label}" — dry-run: ${itemArray.length} item(s)`,
@@ -357,15 +384,23 @@ export async function debugExecuteWorkflow(
         for (let i = 0; i < itemArray.length; i++) {
           const rawItem = itemArray[i];
           const item =
-            typeof rawItem === 'object' && rawItem !== null && !Array.isArray(rawItem)
+            typeof rawItem === 'object' &&
+            rawItem !== null &&
+            !Array.isArray(rawItem)
               ? (rawItem as Record<string, unknown>)
               : { item: rawItem };
           const iterContext = { ...inputContext, ...item, __iterationIndex: i };
 
           record(`[FOR_EACH] iter=${i} starting`);
           const bodyResult = await executeForEachBody(
-            node, bodyNodeIds, parseResult, actionService,
-            iterContext, i, record, true,
+            node,
+            bodyNodeIds,
+            parseResult,
+            actionService,
+            iterContext,
+            i,
+            record,
+            true,
           );
           steps.push(...bodyResult.steps);
           executedNodes.push(...bodyResult.executedNodeIds);
@@ -387,7 +422,11 @@ export async function debugExecuteWorkflow(
         };
       } else {
         const retryResult = await executeWithRetry(
-          node, inputContext, actionService, record, true,
+          node,
+          inputContext,
+          actionService,
+          record,
+          true,
         );
         output = retryResult.output;
         retryCount = retryResult.retryCount;
@@ -399,11 +438,6 @@ export async function debugExecuteWorkflow(
           record(`[ACTION]  id=${node.id} label="${node.label}" — executed`);
         }
       }
-
-      console.log(
-        `[DEBUG] [OUTPUT] node=${node.id} label="${node.label}":`,
-        JSON.stringify(output),
-      );
 
       steps.push({
         nodeId: node.id,
@@ -418,7 +452,6 @@ export async function debugExecuteWorkflow(
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
       record(`[ERROR]   id=${node.id} label="${node.label}" — ${error}`);
-      console.log(`[DEBUG] [ERROR]  node=${node.id} label="${node.label}":`, error);
       steps.push({
         nodeId: node.id,
         label: node.label,
@@ -439,7 +472,10 @@ export async function debugExecuteWorkflow(
       const winHandle = (output!.conditionResult as boolean) ? 'true' : 'false';
       for (const edge of outgoingEdges) {
         if (!edge.sourceHandle || edge.sourceHandle === winHandle) {
-          activationCount.set(edge.target, (activationCount.get(edge.target) ?? 0) + 1);
+          activationCount.set(
+            edge.target,
+            (activationCount.get(edge.target) ?? 0) + 1,
+          );
         }
       }
       if (outgoingEdges.length > 0) {
@@ -448,7 +484,10 @@ export async function debugExecuteWorkflow(
     } else {
       for (const edge of outgoingEdges) {
         if (!consumedByForEach.has(edge.target)) {
-          activationCount.set(edge.target, (activationCount.get(edge.target) ?? 0) + 1);
+          activationCount.set(
+            edge.target,
+            (activationCount.get(edge.target) ?? 0) + 1,
+          );
         }
       }
       const downstream = outgoingEdges
@@ -518,7 +557,9 @@ export async function executeWorkflow(
     if (consumedByForEach.has(node.id)) continue;
 
     if ((activationCount.get(node.id) ?? 0) === 0) {
-      record(`[SKIP]    id=${node.id} label="${node.label}" — branch not taken`);
+      record(
+        `[SKIP]    id=${node.id} label="${node.label}" — branch not taken`,
+      );
       continue;
     }
 
@@ -546,7 +587,11 @@ export async function executeWorkflow(
         const leftOperand = config?.leftOperand ?? '';
         const operator = config?.operator ?? '==';
         const rightOperand = config?.rightOperand ?? '';
-        const result = evaluateCondition(inputContext[leftOperand], operator, rightOperand);
+        const result = evaluateCondition(
+          inputContext[leftOperand],
+          operator,
+          rightOperand,
+        );
         record(
           `[CONDITION] id=${node.id} label="${node.label}" — ${leftOperand} ${operator} ${rightOperand} => ${result}`,
         );
@@ -565,7 +610,9 @@ export async function executeWorkflow(
         const config = node.data?.config as Record<string, string> | undefined;
         const arrayField = config?.arrayField ?? 'items';
         const rawArray = inputContext[arrayField];
-        const itemArray: unknown[] = Array.isArray(rawArray) ? (rawArray as unknown[]) : [];
+        const itemArray: unknown[] = Array.isArray(rawArray)
+          ? (rawArray as unknown[])
+          : [];
 
         record(
           `[FOR_EACH] id=${node.id} label="${node.label}" — iterating ${itemArray.length} item(s)`,
@@ -579,15 +626,24 @@ export async function executeWorkflow(
         for (let i = 0; i < itemArray.length; i++) {
           const rawItem = itemArray[i];
           const item =
-            typeof rawItem === 'object' && rawItem !== null && !Array.isArray(rawItem)
+            typeof rawItem === 'object' &&
+            rawItem !== null &&
+            !Array.isArray(rawItem)
               ? (rawItem as Record<string, unknown>)
               : { item: rawItem };
           const iterContext = { ...inputContext, ...item, __iterationIndex: i };
 
           record(`[FOR_EACH] iter=${i} starting`);
           const bodyResult = await executeForEachBody(
-            node, bodyNodeIds, parseResult, actionService,
-            iterContext, i, record, false, emitFn,
+            node,
+            bodyNodeIds,
+            parseResult,
+            actionService,
+            iterContext,
+            i,
+            record,
+            false,
+            emitFn,
           );
           steps.push(...bodyResult.steps);
           executedNodes.push(...bodyResult.executedNodeIds);
@@ -609,7 +665,11 @@ export async function executeWorkflow(
         };
       } else {
         const retryResult = await executeWithRetry(
-          node, inputContext, actionService, record, false,
+          node,
+          inputContext,
+          actionService,
+          record,
+          false,
         );
         output = retryResult.output;
         retryCount = retryResult.retryCount;
@@ -655,7 +715,10 @@ export async function executeWorkflow(
       const winHandle = (output!.conditionResult as boolean) ? 'true' : 'false';
       for (const edge of outgoingEdges) {
         if (!edge.sourceHandle || edge.sourceHandle === winHandle) {
-          activationCount.set(edge.target, (activationCount.get(edge.target) ?? 0) + 1);
+          activationCount.set(
+            edge.target,
+            (activationCount.get(edge.target) ?? 0) + 1,
+          );
         }
       }
       if (outgoingEdges.length > 0) {
@@ -664,7 +727,10 @@ export async function executeWorkflow(
     } else {
       for (const edge of outgoingEdges) {
         if (!consumedByForEach.has(edge.target)) {
-          activationCount.set(edge.target, (activationCount.get(edge.target) ?? 0) + 1);
+          activationCount.set(
+            edge.target,
+            (activationCount.get(edge.target) ?? 0) + 1,
+          );
         }
       }
       const downstream = outgoingEdges

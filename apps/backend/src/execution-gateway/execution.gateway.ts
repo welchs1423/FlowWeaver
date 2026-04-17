@@ -28,10 +28,7 @@ export class ExecutionGateway {
   private readonly server!: Server;
 
   @SubscribeMessage('join_flow')
-  handleJoin(
-    @MessageBody() flowId: string,
-    @ConnectedSocket() client: Socket,
-  ) {
+  handleJoin(@MessageBody() flowId: string, @ConnectedSocket() client: Socket) {
     void client.join(`flow:${flowId}`);
   }
 

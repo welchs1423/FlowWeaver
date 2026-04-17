@@ -18,7 +18,12 @@ function buildDto(
     label: string;
     data?: Record<string, unknown>;
   }[],
-  edges: { id: string; source: string; target: string; sourceHandle?: string }[],
+  edges: {
+    id: string;
+    source: string;
+    target: string;
+    sourceHandle?: string;
+  }[],
 ): WorkflowDto {
   const dto = new WorkflowDto();
   dto.nodes = nodes.map((n) => Object.assign(new NodeDto(), n));
@@ -176,7 +181,11 @@ describe('WorkflowService', () => {
   describe('condition node', () => {
     function buildConditionDto(
       triggerOutput: Record<string, unknown>,
-      conditionConfig: { leftOperand: string; operator: string; rightOperand: string },
+      conditionConfig: {
+        leftOperand: string;
+        operator: string;
+        rightOperand: string;
+      },
     ) {
       return buildDto(
         [
@@ -231,7 +240,11 @@ describe('WorkflowService', () => {
     it('follows the false branch when condition is not met', async () => {
       const dto = buildConditionDto(
         {},
-        { leftOperand: 'triggeredBy', operator: '==', rightOperand: 'schedule' },
+        {
+          leftOperand: 'triggeredBy',
+          operator: '==',
+          rightOperand: 'schedule',
+        },
       );
       const result = await service.execute(dto);
       expect(result.executedNodes).toContain('c1');
@@ -262,7 +275,13 @@ describe('WorkflowService', () => {
             id: 'c1',
             type: NodeType.CONDITION,
             label: 'ScoreCheck',
-            data: { config: { leftOperand: 'triggeredBy', operator: '!=', rightOperand: 'schedule' } },
+            data: {
+              config: {
+                leftOperand: 'triggeredBy',
+                operator: '!=',
+                rightOperand: 'schedule',
+              },
+            },
           },
           {
             id: 'a_pass',
@@ -345,7 +364,10 @@ describe('WorkflowService', () => {
             id: 'a1',
             type: NodeType.ACTION,
             label: 'Body',
-            data: { kind: NodeKind.DATA_TRANSFORM, mapping: { idx: '__iterationIndex' } },
+            data: {
+              kind: NodeKind.DATA_TRANSFORM,
+              mapping: { idx: '__iterationIndex' },
+            },
           },
         ],
         [
@@ -425,7 +447,9 @@ describe('WorkflowService', () => {
       const result = await service.execute(dto);
 
       expect(result.failedAt).toBeUndefined();
-      expect(result.steps.find((s) => s.nodeId === 'a1')?.status).toBe('success');
+      expect(result.steps.find((s) => s.nodeId === 'a1')?.status).toBe(
+        'success',
+      );
       expect(result.steps.find((s) => s.nodeId === 'a1')?.retryCount).toBe(2);
       expect(result.log.some((l) => l.includes('[RETRY]'))).toBe(true);
 
@@ -460,7 +484,9 @@ describe('WorkflowService', () => {
       const result = await service.execute(dto);
 
       expect(result.failedAt).toBe('a1');
-      expect(result.steps.find((s) => s.nodeId === 'a1')?.status).toBe('failed');
+      expect(result.steps.find((s) => s.nodeId === 'a1')?.status).toBe(
+        'failed',
+      );
       // 1 initial + 2 retries = 3 total calls
       expect((global.fetch as jest.Mock).mock.calls).toHaveLength(3);
 

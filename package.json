@@ -1,6 +1,7 @@
 {
   "name": "flowweaver",
-  "version": "0.0.1",
+  "version": "1.0.0",
+  "description": "엔터프라이즈급 노드 기반 시각적 워크플로우 자동화 엔진 — DAG 실행, 실시간 모니터링, 시크릿 관리 및 SaaS 구독 결제를 통합 제공합니다.",
   "private": true,
   "scripts": {
     "dev": "pnpm --parallel --filter=./apps/* dev",

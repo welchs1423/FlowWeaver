@@ -8,7 +8,13 @@ import { ExecutionGatewayModule } from '../execution-gateway/execution-gateway.m
 import { UsersModule } from '../users/users.module';
 
 @Module({
-  imports: [WorkflowModule, FlowSchedulerModule, SecretsModule, ExecutionGatewayModule, UsersModule],
+  imports: [
+    WorkflowModule,
+    FlowSchedulerModule,
+    SecretsModule,
+    ExecutionGatewayModule,
+    UsersModule,
+  ],
   controllers: [FlowsController],
   providers: [FlowsService],
   exports: [FlowsService],
