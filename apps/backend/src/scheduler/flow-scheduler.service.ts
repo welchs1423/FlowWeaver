@@ -44,8 +44,8 @@ export class FlowSchedulerService implements OnModuleInit {
 
     const triggerNode = dag.nodes.find(
       (n) =>
-        n.type === NodeType.TRIGGER &&
-        (n.data?.kind as string) === NodeKind.SCHEDULE,
+        n.type === (NodeType.TRIGGER as string) &&
+        (n.data?.kind as string) === (NodeKind.SCHEDULE as string),
     );
 
     if (!triggerNode) return;
@@ -96,7 +96,7 @@ export class FlowSchedulerService implements OnModuleInit {
     const jobName = `flow-${flowId}`;
     try {
       const job = this.schedulerRegistry.getCronJob(jobName);
-      job.stop();
+      void job.stop();
       this.schedulerRegistry.deleteCronJob(jobName);
       this.logger.log(`Unregistered schedule for flow ${flowId}`);
     } catch {
