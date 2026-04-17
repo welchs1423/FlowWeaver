@@ -5,6 +5,7 @@ import {
   executeWorkflow,
   debugExecuteWorkflow,
   ExecutionResult,
+  NodeEmitFn,
 } from './dag/execution-engine';
 import { TriggerService } from './trigger/trigger.service';
 import { ActionService } from './action/action.service';
@@ -19,6 +20,7 @@ export class WorkflowService {
   async execute(
     dto: WorkflowDto,
     triggerInput?: Record<string, unknown>,
+    emitFn?: NodeEmitFn,
   ): Promise<ExecutionResult> {
     let parseResult: DagParseResult;
     try {
@@ -32,6 +34,7 @@ export class WorkflowService {
       this.triggerService,
       this.actionService,
       triggerInput,
+      emitFn,
     );
   }
 

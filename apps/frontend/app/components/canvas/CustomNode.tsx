@@ -10,6 +10,7 @@ export interface CustomNodeData {
   nodeType: 'trigger' | 'action';
   config: Record<string, string>;
   _debugStatus?: 'success' | 'failed' | 'skipped';
+  _liveStatus?: 'started' | 'success' | 'failed' | null;
 }
 
 function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
@@ -25,6 +26,7 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
 
   const isTrigger = data.nodeType === 'trigger';
   const debugStatus = data._debugStatus;
+  const liveStatus = data._liveStatus;
 
   useEffect(() => {
     if (!loaded) load();
@@ -33,12 +35,16 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
   const headerBg = isTrigger ? 'bg-violet-600' : 'bg-sky-600';
 
   const borderColor =
+    liveStatus === 'started' ? 'border-yellow-400' :
+    liveStatus === 'success' ? 'border-emerald-500' :
+    liveStatus === 'failed' ? 'border-red-500' :
     debugStatus === 'success' ? 'border-emerald-500' :
     debugStatus === 'failed' ? 'border-red-500' :
     debugStatus === 'skipped' ? 'border-zinc-600' :
     selected ? 'border-white' :
     isTrigger ? 'border-violet-400' : 'border-sky-400';
 
+  const ringPulse = liveStatus === 'started' ? 'animate-pulse' : '';
   const opacity = debugStatus === 'skipped' ? 'opacity-40' : '';
 
   function handleUseSecretToggle(checked: boolean) {
@@ -57,11 +63,21 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
 
   return (
     <div
-      className={`relative min-w-45 rounded-lg border-2 ${borderColor} ${opacity} bg-zinc-900 shadow-lg`}
+      className={`relative min-w-45 rounded-lg border-2 ${borderColor} ${ringPulse} ${opacity} bg-zinc-900 shadow-lg`}
     >
-      {debugStatus === 'failed' && (
+      {liveStatus === 'started' && (
+        <span className="absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-yellow-500 text-zinc-900 text-[9px] font-bold leading-none z-10 animate-spin">
+          ↻
+        </span>
+      )}
+      {(liveStatus === 'failed' || debugStatus === 'failed') && (
         <span className="absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-red-600 text-white text-[9px] font-bold leading-none z-10">
           !
+        </span>
+      )}
+      {liveStatus === 'success' && debugStatus !== 'failed' && (
+        <span className="absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500 text-white text-[9px] font-bold leading-none z-10">
+          ✓
         </span>
       )}
 

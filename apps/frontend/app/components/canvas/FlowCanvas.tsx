@@ -28,6 +28,11 @@ import {
   type FlowVersionRecord,
 } from '../../lib/api';
 import type { ExecutionResult, StepResult } from '../../lib/api';
+import {
+  useExecutionSocket,
+  type LiveNodeStatus,
+  type NodeEvent,
+} from '../../hooks/useExecutionSocket';
 import CustomNode from './CustomNode';
 import ConditionNode from './ConditionNode';
 import DelayNode from './DelayNode';
@@ -72,6 +77,31 @@ export default function FlowCanvas() {
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [rollbackStatus, setRollbackStatus] = useState<ActionStatus>('idle');
 
+  const [liveNodeStatus, setLiveNodeStatus] = useState<Map<string, LiveNodeStatus>>(new Map());
+
+  const handleNodeEvent = useCallback((event: NodeEvent) => {
+    setLiveNodeStatus((prev) => {
+      const next = new Map(prev);
+      next.set(event.nodeId, event.status);
+      return next;
+    });
+  }, []);
+
+  const handleExecutionStarted = useCallback(() => {
+    setLiveNodeStatus(new Map());
+  }, []);
+
+  const handleExecutionFinished = useCallback(() => {
+    // status is already reflected via node events; keep the final state visible
+  }, []);
+
+  useExecutionSocket({
+    flowId: savedFlowId,
+    onNodeEvent: handleNodeEvent,
+    onExecutionStarted: handleExecutionStarted,
+    onExecutionFinished: handleExecutionFinished,
+  });
+
   // Load flow from URL param on mount
   useEffect(() => {
     const flowId = searchParams.get('flowId');
@@ -85,8 +115,6 @@ export default function FlowCanvas() {
         rfNodes.forEach((n) => addNode(n));
         setSavedFlowId(flow.id);
         setFlowStatus(flow.status as 'DRAFT' | 'PUBLISHED');
-        // Restore edges via store bulk-set would require extending the store;
-        // use onEdgesChange workaround via direct state replacement
         useFlowStore.setState({ edges: rfEdges });
       })
       .catch(() => {
@@ -96,30 +124,45 @@ export default function FlowCanvas() {
   }, []);
 
   const displayNodes = useMemo(() => {
-    if (!debugResult) return nodes;
-    return nodes.map((node) => {
-      const step = debugResult.steps.find((s) => s.nodeId === node.id);
-      const isExecuted = debugResult.executedNodes.includes(node.id);
-      let _debugStatus: 'success' | 'failed' | 'skipped';
-      if (step?.status === 'failed') {
-        _debugStatus = 'failed';
-      } else if (isExecuted) {
-        _debugStatus = 'success';
-      } else {
-        _debugStatus = 'skipped';
-      }
-      return {
+    // Debug mode takes precedence over live run status
+    if (debugResult) {
+      return nodes.map((node) => {
+        const step = debugResult.steps.find((s) => s.nodeId === node.id);
+        const isExecuted = debugResult.executedNodes.includes(node.id);
+        let _debugStatus: 'success' | 'failed' | 'skipped';
+        if (step?.status === 'failed') {
+          _debugStatus = 'failed';
+        } else if (isExecuted) {
+          _debugStatus = 'success';
+        } else {
+          _debugStatus = 'skipped';
+        }
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            _debugStatus,
+            _debugInput: step?.input,
+            _debugOutput: step?.output,
+            _debugError: step?.error,
+          },
+        };
+      });
+    }
+
+    // Live run mode
+    if (liveNodeStatus.size > 0) {
+      return nodes.map((node) => ({
         ...node,
         data: {
           ...node.data,
-          _debugStatus,
-          _debugInput: step?.input,
-          _debugOutput: step?.output,
-          _debugError: step?.error,
+          _liveStatus: liveNodeStatus.get(node.id) ?? null,
         },
-      };
-    });
-  }, [nodes, debugResult]);
+      }));
+    }
+
+    return nodes;
+  }, [nodes, debugResult, liveNodeStatus]);
 
   const onDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -223,6 +266,8 @@ export default function FlowCanvas() {
     setRunStatus('loading');
     setLastLog([]);
     setErrorMsg('');
+    setLiveNodeStatus(new Map());
+    setDebugResult(null);
 
     let targetId = savedFlowId;
 
@@ -259,6 +304,7 @@ export default function FlowCanvas() {
       setDebugResult(null);
       setSelectedDebugNodeId(null);
       setErrorMsg('');
+      setLiveNodeStatus(new Map());
       try {
         const result = await debugWorkflow(nodes, edges, mockInput);
         setDebugResult(result);
@@ -278,6 +324,7 @@ export default function FlowCanvas() {
     setDebugResult(null);
     setSelectedDebugNodeId(null);
     setLastLog([]);
+    setLiveNodeStatus(new Map());
   }, []);
 
   const onNodeClick = useCallback(
@@ -317,6 +364,7 @@ export default function FlowCanvas() {
         useFlowStore.setState({ edges: rfEdges });
         setShowVersionPanel(false);
         setDebugResult(null);
+        setLiveNodeStatus(new Map());
         setRollbackStatus('success');
         setTimeout(() => setRollbackStatus('idle'), 2000);
       } catch (err) {
@@ -421,6 +469,10 @@ export default function FlowCanvas() {
     selectedDebugNodeId !== null &&
     (debugResult?.executedNodes.includes(selectedDebugNodeId) ?? false);
 
+  const liveRunning = runStatus === 'loading' && liveNodeStatus.size > 0;
+  const liveStartedCount = [...liveNodeStatus.values()].filter((s) => s === 'started').length;
+  const liveDoneCount = [...liveNodeStatus.values()].filter((s) => s !== 'started').length;
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       {/* toolbar */}
@@ -442,6 +494,22 @@ export default function FlowCanvas() {
             <span className={flowStatus === 'PUBLISHED' ? 'text-emerald-400 font-medium' : 'text-zinc-500'}>
               {flowStatus === 'PUBLISHED' ? 'published' : 'draft'}
             </span>
+          </>
+        )}
+        {liveNodeStatus.size > 0 && !debugResult && (
+          <>
+            <span className="text-zinc-700">|</span>
+            <span className={`${liveRunning ? 'text-yellow-400' : 'text-sky-400'}`}>
+              {liveRunning
+                ? `실행 중: ${liveStartedCount > 0 ? `노드 처리 중` : `${liveDoneCount}/${nodes.length} 완료`}`
+                : `완료 (${liveDoneCount} 노드)`}
+            </span>
+            <button
+              onClick={handleClearDebug}
+              className="text-zinc-500 hover:text-zinc-300 text-[10px]"
+            >
+              clear
+            </button>
           </>
         )}
         {debugResult && (

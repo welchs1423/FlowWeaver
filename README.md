@@ -52,6 +52,15 @@ pnpm backend dev
 
 ## 변경 이력
 
+### 2026-04-17
+
+- **WebSocket 실시간 실행 모니터링**: 백엔드에 `@nestjs/websockets` + `socket.io` 기반 `ExecutionGateway` 추가. `POST /flows/:id/execute` 호출 시 실행 엔진이 각 노드를 통과할 때마다 `node_event`(`started` / `success` / `failed`) 이벤트를 Socket.IO 룸(`flow:{flowId}`)으로 방출. 클라이언트는 `join_flow` / `leave_flow` 메시지로 특정 플로우 룸을 구독
+- **프론트엔드 실시간 노드 상태 UI**: `useExecutionSocket` 훅 신설(`apps/frontend/app/hooks/useExecutionSocket.ts`). `socket.io-client`를 동적 임포트하여 SSR 안전하게 연결. `FlowCanvas`에서 훅을 사용해 `liveNodeStatus` 맵을 관리 — Run 버튼 클릭 시 노드별 테두리가 황색(처리 중 + 펄스 애니메이션) → 초록(성공) / 빨강(실패)으로 실시간 전환. `CustomNode`에 `_liveStatus` 데이터 필드 추가 및 회전 배지(처리 중) / 체크 배지(성공) / 느낌표 배지(실패) 시각화 구현
+- **실행 레코드 사전 생성**: `FlowsService.execute()`가 실행 시작 전에 `status: 'running'` 상태의 `Execution` 레코드를 DB에 선생성하고, 완료 후 결과로 업데이트. `execution_started` / `execution_finished` WebSocket 이벤트도 방출
+- **Redis 캐싱 도입**: `ioredis` 기반 `RedisService` 추가(`src/redis/`). Redis 미연결 시 경고 로그만 출력하고 캐싱을 무음으로 비활성화하는 graceful fallback 구현. `TemplatesService.findAll()`에 5분 TTL 캐싱 적용 — Redis 연결 시 `GET /templates` 응답이 DB 조회 없이 즉시 반환됨. `FlowsService`에서 `PUBLISHED` 상태 플로우의 DAG JSON을 2분 TTL로 캐싱; `update` / `unpublish` / `rollback` 호출 시 자동 무효화
+- **Docker Compose Redis 서비스 추가**: `docker-compose.yml`에 `redis:7-alpine` 서비스 추가. 헬스체크 통과 후 백엔드가 기동되도록 `depends_on` 설정. 백엔드 환경변수에 `REDIS_URL: "redis://redis:6379"` 주입
+- `pnpm build` 성공, 백엔드 단위 테스트 31개 전체 통과
+
 ### 2026-04-15
 
 - **템플릿 갤러리 추가**: Prisma 스키마에 `Template` 모델 추가. 서버 최초 기동 시 `TemplatesService.onModuleInit()`에서 4개의 시드 템플릿("매일 아침 날씨 알림", "웹훅 받아서 디스코드 전송", "조건부 Slack 알림", "배열 데이터 순차 처리") 자동 삽입

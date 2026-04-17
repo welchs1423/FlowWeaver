@@ -7,6 +7,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WorkflowService } from '../workflow/workflow.service';
 import { FlowSchedulerService } from '../scheduler/flow-scheduler.service';
 import { SecretsService } from '../secrets/secrets.service';
+import { RedisService } from '../redis/redis.service';
+import { ExecutionGateway } from '../execution-gateway/execution.gateway';
 import { SaveFlowDto, UpdateFlowDto } from './dto/flow.dto';
 import type { ExecutionResult } from '../workflow/dag/execution-engine';
 import type { NodeDto } from '../workflow/dto/workflow.dto';
@@ -18,6 +20,8 @@ export class FlowsService {
     private readonly workflowService: WorkflowService,
     private readonly schedulerService: FlowSchedulerService,
     private readonly secretsService: SecretsService,
+    private readonly redis: RedisService,
+    private readonly gateway: ExecutionGateway,
   ) {}
 
   async create(dto: SaveFlowDto, userId: string) {
@@ -67,6 +71,7 @@ export class FlowsService {
 
     if (updated.status === 'PUBLISHED' && data.dag !== undefined) {
       this.schedulerService.registerFlow(id, updated.dag);
+      await this.redis.del(`flow:dag:${id}`);
     }
 
     return updated;
@@ -79,6 +84,7 @@ export class FlowsService {
       data: { status: 'PUBLISHED' },
     });
     this.schedulerService.registerFlow(id, updated.dag);
+    await this.redis.del(`flow:dag:${id}`);
 
     const last = await this.prisma.flowVersion.findFirst({
       where: { flowId: id },
@@ -99,11 +105,13 @@ export class FlowsService {
       data: { status: 'DRAFT' },
     });
     this.schedulerService.unregisterFlow(id);
+    await this.redis.del(`flow:dag:${id}`);
     return updated;
   }
 
   async remove(id: string, userId: string): Promise<void> {
     await this.findOne(id, userId);
+    await this.redis.del(`flow:dag:${id}`);
     await this.prisma.flow.delete({ where: { id } });
   }
 
@@ -124,15 +132,28 @@ export class FlowsService {
     if (!version || version.flowId !== flowId) {
       throw new NotFoundException(`Version ${versionId} not found`);
     }
-    return this.prisma.flow.update({
+    const updated = await this.prisma.flow.update({
       where: { id: flowId },
       data: { dag: version.dag, status: 'DRAFT' },
     });
+    await this.redis.del(`flow:dag:${flowId}`);
+    return updated;
   }
 
   async execute(id: string, userId: string) {
     const flow = await this.findOne(id, userId);
-    const dag = JSON.parse(flow.dag) as {
+
+    let dagString = flow.dag;
+    if (flow.status === 'PUBLISHED') {
+      const cached = await this.redis.get<string>(`flow:dag:${id}`);
+      if (cached) {
+        dagString = cached;
+      } else {
+        await this.redis.set(`flow:dag:${id}`, flow.dag, 120);
+      }
+    }
+
+    const dag = JSON.parse(dagString) as {
       nodes: NodeDto[];
       edges: SaveFlowDto['edges'];
     };
@@ -140,14 +161,43 @@ export class FlowsService {
     const resolvedNodes = await this.resolveSecretRefs(dag.nodes, userId);
 
     const startedAt = new Date();
+
+    const execution = await this.prisma.execution.create({
+      data: {
+        flowId: id,
+        status: 'running',
+        startedAt,
+      },
+    });
+
+    this.gateway.emitExecutionStarted(id, execution.id);
+
     let result: ExecutionResult;
     let status: string;
 
-    try {
-      result = await this.workflowService.execute({
-        nodes: resolvedNodes,
-        edges: dag.edges,
+    const emitFn = (event: {
+      nodeId: string;
+      label: string;
+      status: 'started' | 'success' | 'failed';
+      error?: string;
+    }) => {
+      this.gateway.emitNodeEvent(id, {
+        executionId: execution.id,
+        flowId: id,
+        nodeId: event.nodeId,
+        label: event.label,
+        status: event.status,
+        error: event.error,
+        timestamp: new Date().toISOString(),
       });
+    };
+
+    try {
+      result = await this.workflowService.execute(
+        { nodes: resolvedNodes, edges: dag.edges },
+        undefined,
+        emitFn,
+      );
       status = result.failedAt ? 'failed' : 'success';
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -157,17 +207,18 @@ export class FlowsService {
 
     const finishedAt = new Date();
 
-    const execution = await this.prisma.execution.create({
+    const updated = await this.prisma.execution.update({
+      where: { id: execution.id },
       data: {
-        flowId: id,
         status,
-        startedAt,
         finishedAt,
         result: JSON.stringify(result),
       },
     });
 
-    return { execution, result };
+    this.gateway.emitExecutionFinished(id, execution.id, status);
+
+    return { execution: updated, result };
   }
 
   private async resolveSecretRefs(

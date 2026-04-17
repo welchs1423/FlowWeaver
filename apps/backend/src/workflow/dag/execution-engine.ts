@@ -4,6 +4,13 @@ import { DagParseResult } from './dag-parser';
 import { TriggerService } from '../trigger/trigger.service';
 import { ActionService } from '../action/action.service';
 
+export type NodeEmitFn = (event: {
+  nodeId: string;
+  label: string;
+  status: 'started' | 'success' | 'failed';
+  error?: string;
+}) => void;
+
 export interface StepResult {
   nodeId: string;
   label: string;
@@ -95,7 +102,7 @@ async function executeWithRetry(
       lastError = err instanceof Error ? err : new Error(String(err));
     }
   }
-  throw lastError;
+  throw lastError ?? new Error(`Action node ${node.id} failed after ${maxRetries} retries`);
 }
 
 interface ForEachBodyResult {
@@ -113,6 +120,7 @@ async function executeForEachBody(
   iterationIndex: number,
   recordFn: (msg: string) => void,
   isDryRun: boolean,
+  emitFn?: NodeEmitFn,
 ): Promise<ForEachBodyResult> {
   const bodyNodes = parseResult.order.filter((n) => bodyNodeIds.has(n.id));
 
@@ -150,6 +158,8 @@ async function executeForEachBody(
     const stepStartedAt = new Date().toISOString();
     let nodeOutput: Record<string, unknown> = {};
     let retryCount = 0;
+
+    emitFn?.({ nodeId: node.id, label: node.label, status: 'started' });
 
     try {
       if (node.type === NodeType.CONDITION) {
@@ -193,6 +203,7 @@ async function executeForEachBody(
         }
       }
 
+      emitFn?.({ nodeId: node.id, label: node.label, status: 'success' });
       steps.push({
         nodeId: node.id,
         label: node.label,
@@ -208,6 +219,7 @@ async function executeForEachBody(
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
       recordFn(`[ERROR]   id=${node.id} iter=${iterationIndex} — ${error}`);
+      emitFn?.({ nodeId: node.id, label: node.label, status: 'failed', error });
       steps.push({
         nodeId: node.id,
         label: node.label,
@@ -331,7 +343,7 @@ export async function debugExecuteWorkflow(
         const config = node.data?.config as Record<string, string> | undefined;
         const arrayField = config?.arrayField ?? 'items';
         const rawArray = inputContext[arrayField];
-        const itemArray = Array.isArray(rawArray) ? rawArray : [];
+        const itemArray: unknown[] = Array.isArray(rawArray) ? (rawArray as unknown[]) : [];
 
         record(
           `[FOR_EACH] id=${node.id} label="${node.label}" — dry-run: ${itemArray.length} item(s)`,
@@ -475,6 +487,7 @@ export async function executeWorkflow(
   triggerService: TriggerService,
   actionService: ActionService,
   triggerInput?: Record<string, unknown>,
+  emitFn?: NodeEmitFn,
 ): Promise<ExecutionResult> {
   const logger = new Logger('ExecutionEngine');
   const executedNodes: string[] = [];
@@ -519,6 +532,8 @@ export async function executeWorkflow(
     let output: Record<string, unknown>;
     let retryCount = 0;
 
+    emitFn?.({ nodeId: node.id, label: node.label, status: 'started' });
+
     try {
       if (node.type === NodeType.TRIGGER) {
         if (triggerInput) {
@@ -550,7 +565,7 @@ export async function executeWorkflow(
         const config = node.data?.config as Record<string, string> | undefined;
         const arrayField = config?.arrayField ?? 'items';
         const rawArray = inputContext[arrayField];
-        const itemArray = Array.isArray(rawArray) ? rawArray : [];
+        const itemArray: unknown[] = Array.isArray(rawArray) ? (rawArray as unknown[]) : [];
 
         record(
           `[FOR_EACH] id=${node.id} label="${node.label}" — iterating ${itemArray.length} item(s)`,
@@ -572,7 +587,7 @@ export async function executeWorkflow(
           record(`[FOR_EACH] iter=${i} starting`);
           const bodyResult = await executeForEachBody(
             node, bodyNodeIds, parseResult, actionService,
-            iterContext, i, record, false,
+            iterContext, i, record, false, emitFn,
           );
           steps.push(...bodyResult.steps);
           executedNodes.push(...bodyResult.executedNodeIds);
@@ -607,6 +622,7 @@ export async function executeWorkflow(
         }
       }
 
+      emitFn?.({ nodeId: node.id, label: node.label, status: 'success' });
       steps.push({
         nodeId: node.id,
         label: node.label,
@@ -619,6 +635,7 @@ export async function executeWorkflow(
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
       record(`[ERROR]   id=${node.id} label="${node.label}" — ${error}`);
+      emitFn?.({ nodeId: node.id, label: node.label, status: 'failed', error });
       steps.push({
         nodeId: node.id,
         label: node.label,

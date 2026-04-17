@@ -1,4 +1,17 @@
 services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - flowweaver
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   backend:
     build:
       context: .
@@ -8,12 +21,16 @@ services:
     environment:
       PORT: "3001"
       DATABASE_URL: "file:/data/flowweaver.db"
+      REDIS_URL: "redis://redis:6379"
       # Change these in production
       JWT_SECRET: "change-me-in-production"
       SECRET_ENCRYPTION_KEY: "change-me-32-chars-exactly-paddd"
       ALLOWED_ORIGIN: "http://localhost:3000"
     volumes:
       - db_data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
     networks:
       - flowweaver
     restart: unless-stopped

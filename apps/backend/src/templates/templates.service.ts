@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
 
 const SEED_TEMPLATES = [
   {
@@ -208,9 +209,15 @@ const SEED_TEMPLATES = [
   },
 ];
 
+const CACHE_KEY = 'templates:all';
+const CACHE_TTL = 300;
+
 @Injectable()
 export class TemplatesService implements OnModuleInit {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
 
   async onModuleInit() {
     const count = await this.prisma.template.count();
@@ -218,11 +225,23 @@ export class TemplatesService implements OnModuleInit {
       for (const tpl of SEED_TEMPLATES) {
         await this.prisma.template.create({ data: tpl });
       }
+      await this.redis.del(CACHE_KEY);
     }
   }
 
-  findAll() {
-    return this.prisma.template.findMany({
+  async findAll() {
+    type TemplateRow = {
+      id: string;
+      name: string;
+      description: string;
+      category: string;
+      createdAt: Date;
+    };
+
+    const cached = await this.redis.get<TemplateRow[]>(CACHE_KEY);
+    if (cached) return cached;
+
+    const rows = await this.prisma.template.findMany({
       orderBy: { createdAt: 'asc' },
       select: {
         id: true,
@@ -232,6 +251,8 @@ export class TemplatesService implements OnModuleInit {
         createdAt: true,
       },
     });
+    await this.redis.set(CACHE_KEY, rows, CACHE_TTL);
+    return rows;
   }
 
   async use(id: string, userId: string) {
